@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="C3 Steuerung">
+<title>C3 Steuerung</title>
+<style>
+:root{--bg:#f2f2f7;--card:#fff;--text:#000;--sub:#6d6d72;--line:#c6c6c8;--blue:#007aff;--green:#34c759;--red:#ff3b30;--off:#e9e9ea}
+@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--text:#fff;--sub:#8e8e93;--line:#38383a;--off:#39393d}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);font:17px -apple-system,system-ui,sans-serif;padding:0 16px calc(90px + env(safe-area-inset-bottom))}
+h1{font-size:30px;margin:14px 4px 8px}
+.sh{font-size:13px;color:var(--sub);text-transform:uppercase;margin:22px 16px 6px}
+.sf{font-size:13px;color:var(--sub);margin:6px 16px 0;line-height:1.35}
+.g{background:var(--card);border-radius:12px;overflow:hidden}
+.r{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;border-bottom:.5px solid var(--line);min-height:46px}
+.r:last-child{border-bottom:0}
+.sw{appearance:none;-webkit-appearance:none;width:51px;height:31px;border-radius:16px;background:var(--off);position:relative;flex:none;margin:0;transition:background .2s}
+.sw:checked{background:var(--green)}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.25);transition:left .2s}
+.sw:checked::after{left:22px}.sw:disabled{opacity:.4}
+select{font:inherit;color:var(--sub);background:transparent;border:0;text-align:right}
+.r.stack{flex-direction:column;align-items:stretch;gap:4px}
+.r.stack select{text-align:left;color:var(--blue);font-weight:600;width:100%;padding:4px 0}
+.sl{padding:10px 16px;border-bottom:.5px solid var(--line)}.sl:last-child{border-bottom:0}
+.sl .t{display:flex;justify-content:space-between}.sl b{font-variant-numeric:tabular-nums}
+.tr{display:flex;align-items:center;gap:12px;margin-top:6px}
+.pm{border:0;background:transparent;color:var(--blue);font-size:30px;line-height:1;padding:0 2px}
+input[type=range]{flex:1;accent-color:var(--blue);height:30px}
+.btn{border:0;background:transparent;font:inherit;color:var(--blue);padding:0}
+.btn.red{color:var(--red)}
+.sc{display:block;width:100%;text-align:left;border:0;background:transparent;font:inherit;color:var(--text);padding:11px 16px;border-bottom:.5px solid var(--line)}
+.sc:last-child{border-bottom:0}.sc small{display:block;color:var(--sub);font-size:13px;margin-top:2px}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:10px;background:var(--red)}
+.ev{padding:9px 16px;border-bottom:.5px solid var(--line);font-size:15px}.ev:last-child{border-bottom:0}.ev small{color:var(--sub);font-variant-numeric:tabular-nums;margin-right:8px}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:var(--bg);border-top:.5px solid var(--line);display:none}
+.bar button{width:100%;border:0;border-radius:12px;background:var(--blue);color:#fff;font:600 17px -apple-system,system-ui;padding:14px}
+.bar button:disabled{opacity:.4}
+</style>
+</head>
+<body>
+<h1>Steuereinheit</h1>
+
+<div id="codeBox" style="display:none">
+  <div class="sh">Mit Monitor koppeln</div>
+  <div class="g"><div class="r"><input id="codeInput" placeholder="Kopplungscode" autocapitalize="characters" autocomplete="off" maxlength="8"
+    style="font:600 20px ui-monospace,monospace;letter-spacing:2px;border:0;background:transparent;color:var(--text);width:100%;text-transform:uppercase">
+    <button class="btn" id="codeBtn">Koppeln</button></div></div>
+  <div class="sf">Scanne am besten den QR-Code am Monitor (Menü → „iPhone als Steuerung koppeln“). Oder tippe den 8-stelligen Code ab.</div>
+</div>
+
+<div class="g">
+  <div class="r"><span><span class="dot" id="dot"></span><span id="conn">Verbinde …</span></span></div>
+  <div class="r"><span>Änderungen sofort senden (Live)</span><input type="checkbox" class="sw" id="live" checked></div>
+  <div class="r"><span>Übergang neuer Werte</span>
+    <select id="transitionSeconds">
+      <option value="0">Sofort</option><option value="10">10 s</option><option value="30">30 s</option>
+      <option value="60">1 min</option><option value="120">2 min</option><option value="300">5 min</option>
+    </select></div>
+</div>
+
+<div class="sh">Sensoren am Patienten</div>
+<div class="g" id="sensors"></div>
+<div class="sf">Erst wenn ein Sensor hier freigegeben ist, zeigt der Monitor Kurve und Wert an.</div>
+
+<div class="sh">EKG-Rhythmus</div>
+<div class="g">
+  <div class="r stack"><span>Rhythmus</span><select id="rhythm"></select></div>
+  <div id="hrBox"></div>
+  <div id="ecgToggles"></div>
+</div>
+
+<div class="sh">Vitalwerte</div>
+<div class="g" id="vitals"></div>
+
+<div class="sh">Blutdruck</div>
+<div class="g" id="bp"></div>
+<div class="sf">Dieser Wert erscheint, wenn am Monitor eine NIBP-Messung abgeschlossen wird.</div>
+
+<div class="sh">Defibrillation</div>
+<div class="g"><div class="r stack"><span>Rhythmus nach Schock</span><select id="shockConversion"></select></div></div>
+<div class="sf">Wird beim nächsten Schock am Monitor automatisch umgesetzt und danach zurückgesetzt.</div>
+
+<div class="sh">Schrittmacher</div>
+<div class="g" id="pacer"></div>
+<div class="sf">Ab dieser Stromstärke folgt auf jeden Pacer-Impuls ein breiter Kammerkomplex. Ohne mechanische Capture bleibt der Patient trotzdem pulslos.</div>
+
+<div class="sh">Szenarien</div>
+<div class="g" id="scenarios"></div>
+
+<div class="sh">Protokoll vom Monitor</div>
+<div class="g" id="events"><div class="ev"><small>Noch keine Aktionen am Monitor.</small></div></div>
+
+<div class="sf" id="codeInfo" style="display:none;margin-top:22px"></div>
+
+<div class="bar" id="sendBar"><button id="sendBtn">An Monitor senden</button></div>
+<script>if(location.protocol==="https:")document.write('<script src="mqtt.min.js"><\/script>')</script>
+
+<script>
+const RHYTHMS=[
+ ["sinus","Sinusrhythmus",75,true],["sinusVES","Sinusrhythmus mit VES",80,true],["stemi","Sinusrhythmus mit ST-Hebung",90,true],
+ ["afib","Vorhofflimmern",110,true],["aflutter","Vorhofflattern",150,true],["svt","Supraventrikuläre Tachykardie",190,true],
+ ["avBlock1","AV-Block I°",70,true],["avBlock2Wenckebach","AV-Block II° Wenckebach",55,true],["avBlock2Mobitz","AV-Block II° Mobitz (2:1)",40,true],
+ ["avBlock3","AV-Block III°",35,true],["pacemaker","Schrittmacher-Rhythmus",70,true],["vt","Ventrikuläre Tachykardie",180,true],
+ ["torsade","Torsade de Pointes",230,false],["vf","Kammerflimmern",0,false],["asystole","Asystolie",0,false]];
+const R=Object.fromEntries(RHYTHMS.map(r=>[r[0],{name:r[1],rate:r[2],pulse:r[3],usesRate:r[0]!=="vf"&&r[0]!=="asystole"}]));
+// name, Beschreibung, Rhythmus, HF, Puls, SpO2, sys, dia, AF, etCO2, Temp
+const SCENARIOS=[
+ ["Normalbefund","Gesunder Erwachsener in Ruhe","sinus",75,true,98,125,80,14,38,36.8],
+ ["STEMI","Akutes Koronarsyndrom mit ST-Hebung","stemi",95,true,94,150,95,20,34,36.9],
+ ["Hypovolämischer Schock","Tachykard, hypoton, blass","sinus",130,true,93,80,50,26,28,35.8],
+ ["Anaphylaxie","Tachykardie, Hypotonie, Bronchospasmus","sinus",140,true,88,75,40,30,45,37.1],
+ ["Sepsis","Fieber, Tachykardie, Hypotonie","sinus",125,true,92,85,50,26,30,39.4],
+ ["COPD-Exazerbation","Hypoxie und Hyperkapnie","sinus",110,true,84,145,90,28,58,37.6],
+ ["Tachyarrhythmia absoluta","Vorhofflimmern mit schneller Überleitung","afib",150,true,95,105,70,20,35,36.7],
+ ["SVT","Regelmäßige Schmalkomplextachykardie","svt",200,true,97,110,75,20,35,36.8],
+ ["AV-Block III°","Symptomatische Bradykardie","avBlock3",32,true,95,80,45,18,36,36.5],
+ ["VT mit Puls","Breitkomplextachykardie, Patient wach","vt",180,true,94,90,60,24,32,36.8],
+ ["Kammerflimmern","Reanimation, schockbarer Rhythmus","vf",0,false,0,0,0,10,18,36.0],
+ ["Pulslose VT","Reanimation, schockbarer Rhythmus","vt",190,false,0,0,0,10,18,36.0],
+ ["PEA","Organisierter Rhythmus ohne Auswurf","sinus",50,false,0,0,0,10,14,36.0],
+ ["Asystolie","Reanimation, nicht schockbar","asystole",0,false,0,0,0,10,12,35.9],
+ ["ROSC","Nach erfolgreicher Reanimation","sinus",105,true,94,100,60,12,40,35.8]];
+
+let state=null, live=true, dirty=false, lastLocalChange=0, sendTimer=null, online=false;
+const $=id=>document.getElementById(id);
+
+function toggleRow(key,label){return `<div class="r"><span>${label}</span><input type="checkbox" class="sw" data-key="${key}"></div>`}
+function sliderRow(key,label,unit,min,max,step){return `<div class="sl"><div class="t"><span>${label}</span><b data-out="${key}" data-unit="${unit}" data-step="${step}"></b></div>
+ <div class="tr"><button class="pm" data-dec="${key}">⊖</button><input type="range" data-key="${key}" min="${min}" max="${max}" step="${step}"><button class="pm" data-inc="${key}">⊕</button></div></div>`}
+
+$("sensors").innerHTML=toggleRow("ecgAttached","EKG-Elektroden")+toggleRow("spo2Attached","SpO₂-Sensor")+toggleRow("nibpAttached","NIBP-Manschette")
+ +toggleRow("co2Attached","CO₂ (Kapnografie)")+toggleRow("tempAttached","Temperatursonde")
+ +`<div class="r"><button class="btn" id="allOn">Alle anlegen</button><button class="btn red" id="allOff">Alle entfernen</button></div>`;
+$("hrBox").innerHTML=sliderRow("heartRate","Herzfrequenz","/min",20,250,1);
+$("ecgToggles").innerHTML=toggleRow("hasPulse","Puls tastbar (Auswurf)")+toggleRow("cprArtifact","HLW-Artefakte (Thoraxkompressionen)")+toggleRow("motionArtifact","Bewegungsartefakte");
+$("vitals").innerHTML=sliderRow("spo2","SpO₂","%",50,100,1)+sliderRow("respRate","Atemfrequenz","/min",0,60,1)+sliderRow("etco2","etCO₂","mmHg",0,100,1)+sliderRow("temperature","Temperatur","°C",30,43,0.1);
+$("bp").innerHTML=sliderRow("nibpSys","Systolisch","mmHg",0,280,1)+sliderRow("nibpDia","Diastolisch","mmHg",0,200,1);
+$("pacer").innerHTML=sliderRow("pacerThreshold","Reizschwelle","mA",0,200,5)+toggleRow("pacerMechanicalCapture","Mechanische Capture (Puls bei Stimulation)");
+$("rhythm").innerHTML=RHYTHMS.map(r=>`<option value="${r[0]}">${r[1]}</option>`).join("");
+$("shockConversion").innerHTML=`<option value="">Unverändert</option>`+RHYTHMS.map(r=>`<option value="${r[0]}">${r[1]}</option>`).join("");
+$("scenarios").innerHTML=SCENARIOS.map((s,i)=>`<button class="sc" data-scn="${i}">${s[0]}<small>${s[1]}</small></button>`).join("");
+
+function setValue(key,v){
+  if(key==="nibpSys"){state.nibpSys=v;if(state.nibpDia>=v)state.nibpDia=Math.max(0,v-10)}
+  else if(key==="nibpDia"){state.nibpDia=Math.min(v,Math.max(0,state.nibpSys-10))}
+  else state[key]=v;
+  changed();
+}
+function changed(){lastLocalChange=Date.now();render();if(live){clearTimeout(sendTimer);sendTimer=setTimeout(send,120)}else{dirty=true;renderBar()}}
+// Verbindung: im lokalen WLAN direkt per HTTP zum iPad, sonst übers Internet (MQTT-Broker)
+const BROKER="wss://broker.hivemq.com:8884/mqtt";
+const RELAY=location.protocol==="https:";
+let code=null, client=null, lastSeen=0, monitorName="";
+function topic(t){return "c3sim/"+code+"/"+t}
+async function send(){
+  if(!state)return;
+  if(RELAY){
+    if(!client||!client.connected)return;
+    client.publish(topic("control"),JSON.stringify({state}));dirty=false;renderBar();return;
+  }
+  try{await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(state)});dirty=false;renderBar()}
+  catch(e){setOnline(false)}
+}
+function fmt(v,step){return step<1?Number(v).toFixed(1):String(Math.round(v))}
+
+function render(){
+  if(!state)return;
+  document.querySelectorAll("input.sw[data-key]").forEach(el=>{el.checked=!!state[el.dataset.key]});
+  document.querySelectorAll("input[type=range][data-key]").forEach(el=>{if(document.activeElement!==el)el.value=state[el.dataset.key]});
+  document.querySelectorAll("[data-out]").forEach(el=>{el.textContent=fmt(state[el.dataset.out],+el.dataset.step)+" "+el.dataset.unit});
+  $("rhythm").value=state.rhythm;
+  $("shockConversion").value=state.shockConversion||"";
+  $("transitionSeconds").value=String(state.transitionSeconds||0);
+  $("hrBox").style.display=R[state.rhythm].usesRate?"":"none";
+  document.querySelector('input[data-key="hasPulse"]').disabled=!R[state.rhythm].pulse;
+}
+function renderBar(){$("sendBar").style.display=live?"none":"block";$("sendBtn").disabled=!dirty;$("sendBtn").textContent=dirty?"An Monitor senden":"Alles gesendet"}
+function setOnline(ok,name){online=ok;$("dot").style.background=ok?"var(--green)":"var(--red)";$("conn").textContent=ok?"Verbunden mit "+name:"Keine Verbindung zum Monitor"}
+
+document.addEventListener("change",e=>{
+  const el=e.target;if(!state&&el.id!=="live")return;
+  if(el.matches("input.sw[data-key]"))setValue(el.dataset.key,el.checked);
+  else if(el.id==="rhythm"){const r=R[el.value];state.rhythm=el.value;if(r.usesRate)state.heartRate=r.rate;state.hasPulse=r.pulse;changed()}
+  else if(el.id==="shockConversion"){state.shockConversion=el.value||null;changed()}
+  else if(el.id==="transitionSeconds"){state.transitionSeconds=+el.value;changed()}
+  else if(el.id==="live"){live=el.checked;if(live&&dirty)send();renderBar()}
+});
+document.addEventListener("input",e=>{const el=e.target;if(state&&el.matches("input[type=range][data-key]"))setValue(el.dataset.key,+el.value)});
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b||!state)return;
+  const range=k=>document.querySelector(`input[type=range][data-key="${k}"]`);
+  if(b.dataset.inc||b.dataset.dec){const k=b.dataset.inc||b.dataset.dec,el=range(k),st=+el.step,d=b.dataset.inc?st:-st;
+    setValue(k,Math.min(+el.max,Math.max(+el.min,Math.round((state[k]+d)/st)*st)))}
+  else if(b.id==="allOn"||b.id==="allOff"){const on=b.id==="allOn";["ecgAttached","spo2Attached","nibpAttached","co2Attached","tempAttached"].forEach(k=>state[k]=on);changed()}
+  else if(b.dataset.scn){const s=SCENARIOS[+b.dataset.scn];Object.assign(state,{rhythm:s[2],heartRate:s[3],hasPulse:s[4]&&R[s[2]].pulse,spo2:s[5],nibpSys:s[6],nibpDia:s[7],respRate:s[8],etco2:s[9],temperature:s[10],cprArtifact:false,motionArtifact:false});
+    changed();if(!live)send();window.scrollTo({top:0,behavior:"smooth"})}
+  else if(b.id==="sendBtn")send();
+});
+
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function handleStatus(j){
+  monitorName=j.monitorName;
+  if(!state||(live&&!dirty&&Date.now()-lastLocalChange>3000)){state=j.state;if(state.shockConversion===undefined)state.shockConversion=null;render()}
+  const ev=$("events");
+  ev.innerHTML=j.events.length?j.events.map(e=>`<div class="ev"><small>${new Date(e.date).toLocaleTimeString("de-DE")}</small>${esc(e.text)}</div>`).join("")
+    :`<div class="ev"><small>Noch keine Aktionen am Monitor.</small></div>`;
+}
+async function poll(){
+  try{
+    const r=await fetch("/api/status",{cache:"no-store"});const j=await r.json();
+    setOnline(true,j.monitorName);handleStatus(j);
+  }catch(e){setOnline(false)}
+}
+
+function store(k,v){try{v===null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}
+function stored(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function startRelay(c){
+  code=c.toUpperCase().replace(/[^A-Z0-9]/g,"");
+  store("c3code",code);
+  $("codeBox").style.display="none";
+  $("codeInfo").style.display="block";
+  $("codeInfo").innerHTML=`Kopplungscode ${code} · <button class="btn" id="codeReset" style="font-size:13px">Anderen Monitor koppeln</button>`;
+  $("conn").textContent="Verbinde …";
+  if(client)client.end(true);
+  client=mqtt.connect(BROKER,{clientId:"c3web-"+code+"-"+Math.random().toString(16).slice(2,8),clean:true,keepalive:30,reconnectPeriod:2000});
+  client.on("connect",()=>{client.subscribe(topic("status"));client.publish(topic("control"),JSON.stringify({ping:true}))});
+  client.on("message",(t,payload)=>{
+    try{const j=JSON.parse(payload.toString());lastSeen=j.sentAt?Date.parse(j.sentAt):Date.now();handleStatus(j);checkOnline()}catch(e){}
+  });
+  client.on("offline",checkOnline);
+}
+function checkOnline(){
+  if(!RELAY||!code)return;
+  if(!client||!client.connected){setOnline(false);$("conn").textContent="Keine Internetverbindung";return}
+  const fresh=Date.now()-lastSeen<20000;
+  if(fresh)setOnline(true,monitorName);
+  else{setOnline(false);$("conn").textContent=state?"Monitor offline – App am iPad geöffnet?":"Warte auf Monitor "+code+" …"}
+}
+function showCodeEntry(){$("codeBox").style.display="block";$("codeInfo").style.display="none";$("conn").textContent="Noch nicht gekoppelt";$("codeInput").focus()}
+document.addEventListener("click",e=>{
+  if(e.target.id==="codeBtn"){const v=$("codeInput").value.trim();if(v.length>=6){history.replaceState(null,"","?code="+encodeURIComponent(v.toUpperCase()));startRelay(v)}}
+  else if(e.target.id==="codeReset"){store("c3code",null);if(client)client.end(true);client=null;code=null;showCodeEntry()}
+});
+
+renderBar();
+if(RELAY){
+  const c=new URLSearchParams(location.search).get("code")||stored("c3code");
+  if(c)startRelay(c);else showCodeEntry();
+  setInterval(checkOnline,2000);
+  setInterval(()=>{if(client&&client.connected)client.publish(topic("control"),JSON.stringify({ping:true}))},5000);
+}else{poll();setInterval(poll,1500)}
+</script>
+</body>
+</html>
