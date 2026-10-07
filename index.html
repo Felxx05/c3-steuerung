@@ -63,7 +63,7 @@ input[type=range]{flex:1;accent-color:var(--blue);height:30px}
 
 <div class="sh">Sensoren am Patienten</div>
 <div class="g" id="sensors"></div>
-<div class="sf">Erst wenn ein Sensor hier freigegeben ist, zeigt der Monitor Kurve und Wert an.</div>
+<div class="sf">Erst wenn ein Sensor hier freigegeben ist, zeigt der Monitor Kurve und Wert an. Schock und Pacer gehen nur mit Pads, die 6- und 12-Kanal-Ansicht nur mit dem passenden Kabel.</div>
 
 <div class="sh">EKG-Rhythmus</div>
 <div class="g">
@@ -100,7 +100,7 @@ input[type=range]{flex:1;accent-color:var(--blue);height:30px}
 
 <script>
 const RHYTHMS=[
- ["sinus","Sinusrhythmus",75,true],["sinusVES","Sinusrhythmus mit VES",80,true],["stemi","Sinusrhythmus mit ST-Hebung",90,true],
+ ["sinus","Sinusrhythmus",75,true],["sinusVES","Sinusrhythmus mit VES",80,true],["stemi","STEMI Hinterwand (II, III, aVF)",60,true],["stemiAnterior","STEMI Vorderwand (V1–V4)",95,true],["stemiLateral","STEMI Seitenwand (I, aVL, V5, V6)",85,true],["stemiAnterolateral","STEMI großer Vorderwandinfarkt (V1–V6, I, aVL)",105,true],
  ["afib","Vorhofflimmern",110,true],["aflutter","Vorhofflattern",150,true],["svt","Supraventrikuläre Tachykardie",190,true],
  ["avBlock1","AV-Block I°",70,true],["avBlock2Wenckebach","AV-Block II° Wenckebach",55,true],["avBlock2Mobitz","AV-Block II° Mobitz (2:1)",40,true],
  ["avBlock3","AV-Block III°",35,true],["pacemaker","Schrittmacher-Rhythmus",70,true],["vt","Ventrikuläre Tachykardie",180,true],
@@ -109,7 +109,8 @@ const R=Object.fromEntries(RHYTHMS.map(r=>[r[0],{name:r[1],rate:r[2],pulse:r[3],
 // name, Beschreibung, Rhythmus, HF, Puls, SpO2, sys, dia, AF, etCO2, Temp
 const SCENARIOS=[
  ["Normalbefund","Gesunder Erwachsener in Ruhe","sinus",75,true,98,125,80,14,38,36.8],
- ["STEMI","Akutes Koronarsyndrom mit ST-Hebung","stemi",95,true,94,150,95,20,34,36.9],
+ ["STEMI Vorderwand","ST-Hebung V1–V4, 12-Kanal-EKG nötig","stemiAnterior",95,true,94,150,95,20,34,36.9],
+ ["STEMI Hinterwand","ST-Hebung II, III, aVF, bradykard und hypoton","stemi",52,true,95,95,60,18,35,36.7],
  ["Hypovolämischer Schock","Tachykard, hypoton, blass","sinus",130,true,93,80,50,26,28,35.8],
  ["Anaphylaxie","Tachykardie, Hypotonie, Bronchospasmus","sinus",140,true,88,75,40,30,45,37.1],
  ["Sepsis","Fieber, Tachykardie, Hypotonie","sinus",125,true,92,85,50,26,30,39.4],
@@ -131,7 +132,7 @@ function toggleRow(key,label){return `<div class="r"><span>${label}</span><input
 function sliderRow(key,label,unit,min,max,step){return `<div class="sl"><div class="t"><span>${label}</span><b data-out="${key}" data-unit="${unit}" data-step="${step}"></b></div>
  <div class="tr"><button class="pm" data-dec="${key}">⊖</button><input type="range" data-key="${key}" min="${min}" max="${max}" step="${step}"><button class="pm" data-inc="${key}">⊕</button></div></div>`}
 
-$("sensors").innerHTML=toggleRow("ecgAttached","EKG-Elektroden")+toggleRow("spo2Attached","SpO₂-Sensor")+toggleRow("nibpAttached","NIBP-Manschette")
+$("sensors").innerHTML=toggleRow("ecgAttached","EKG 4-polig (6 Ableitungen)")+toggleRow("ecg12Attached","EKG 12-Kanal (zusätzlich V1–V6)")+toggleRow("padsAttached","Defi-Pads (Reanimation)")+toggleRow("spo2Attached","SpO₂-Sensor")+toggleRow("nibpAttached","NIBP-Manschette")
  +toggleRow("co2Attached","CO₂ (Kapnografie)")+toggleRow("tempAttached","Temperatursonde")
  +`<div class="r"><button class="btn" id="allOn">Alle anlegen</button><button class="btn red" id="allOff">Alle entfernen</button></div>`;
 $("hrBox").innerHTML=sliderRow("heartRate","Herzfrequenz","/min",20,250,1);
@@ -197,7 +198,7 @@ document.addEventListener("click",e=>{
   const range=k=>document.querySelector(`input[type=range][data-key="${k}"]`);
   if(b.dataset.inc||b.dataset.dec){const k=b.dataset.inc||b.dataset.dec,el=range(k),st=+el.step,d=b.dataset.inc?st:-st;
     setValue(k,Math.min(+el.max,Math.max(+el.min,Math.round((state[k]+d)/st)*st)))}
-  else if(b.id==="allOn"||b.id==="allOff"){const on=b.id==="allOn";["ecgAttached","spo2Attached","nibpAttached","co2Attached","tempAttached"].forEach(k=>state[k]=on);changed()}
+  else if(b.id==="allOn"||b.id==="allOff"){const on=b.id==="allOn";["ecgAttached","spo2Attached","nibpAttached","co2Attached","tempAttached"].forEach(k=>state[k]=on);if(!on){state.ecg12Attached=false;state.padsAttached=false}changed()}
   else if(b.dataset.scn){const s=SCENARIOS[+b.dataset.scn];Object.assign(state,{rhythm:s[2],heartRate:s[3],hasPulse:s[4]&&R[s[2]].pulse,spo2:s[5],nibpSys:s[6],nibpDia:s[7],respRate:s[8],etco2:s[9],temperature:s[10],cprArtifact:false,motionArtifact:false});
     changed();if(!live)send();window.scrollTo({top:0,behavior:"smooth"})}
   else if(b.id==="sendBtn")send();
