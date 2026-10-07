@@ -53,6 +53,7 @@ input[type=range]{flex:1;accent-color:var(--blue);height:30px}
 
 <div class="g">
   <div class="r"><span><span class="dot" id="dot"></span><span id="conn">Verbinde …</span></span></div>
+  <div class="r"><span><b id="powerLabel">Monitor aus</b></span><input type="checkbox" class="sw" data-key="monitorOn"></div>
   <div class="r"><span>Änderungen sofort senden (Live)</span><input type="checkbox" class="sw" id="live" checked></div>
   <div class="r"><span>Übergang neuer Werte</span>
     <select id="transitionSeconds">
@@ -80,8 +81,8 @@ input[type=range]{flex:1;accent-color:var(--blue);height:30px}
 <div class="sf">Dieser Wert erscheint, wenn am Monitor eine NIBP-Messung abgeschlossen wird.</div>
 
 <div class="sh">Defibrillation</div>
-<div class="g"><div class="r stack"><span>Rhythmus nach Schock</span><select id="shockConversion"></select></div></div>
-<div class="sf">Wird beim nächsten Schock am Monitor automatisch umgesetzt und danach zurückgesetzt.</div>
+<div class="g"><div class="r stack"><span>Rhythmus nach Schock</span><select id="shockConversion"></select></div><div id="convRate"></div></div>
+<div class="sf">Wird beim nächsten Schock am Monitor automatisch umgesetzt (mit der eingestellten Frequenz) und danach zurückgesetzt.</div>
 
 <div class="sh">Schrittmacher</div>
 <div class="g" id="pacer"></div>
@@ -136,6 +137,7 @@ $("sensors").innerHTML=toggleRow("ecgAttached","EKG 4-polig (6 Ableitungen)")+to
  +toggleRow("co2Attached","CO₂ (Kapnografie)")+toggleRow("tempAttached","Temperatursonde")
  +`<div class="r"><button class="btn" id="allOn">Alle anlegen</button><button class="btn red" id="allOff">Alle entfernen</button></div>`;
 $("hrBox").innerHTML=sliderRow("heartRate","Herzfrequenz","/min",20,250,1);
+$("convRate").innerHTML=sliderRow("shockConversionRate","Frequenz nach Schock","/min",20,250,1);
 $("ecgToggles").innerHTML=toggleRow("hasPulse","Puls tastbar (Auswurf)")+toggleRow("cprArtifact","HLW-Artefakte (Thoraxkompressionen)")+toggleRow("motionArtifact","Bewegungsartefakte");
 $("vitals").innerHTML=sliderRow("spo2","SpO₂","%",50,100,1)+sliderRow("respRate","Atemfrequenz","/min",0,60,1)+sliderRow("etco2","etCO₂","mmHg",0,100,1)+sliderRow("temperature","Temperatur","°C",30,43,0.1);
 $("bp").innerHTML=sliderRow("nibpSys","Systolisch","mmHg",0,280,1)+sliderRow("nibpDia","Diastolisch","mmHg",0,200,1);
@@ -178,7 +180,8 @@ function render(){
   $("rhythm").value=state.rhythm;
   $("shockConversion").value=state.shockConversion||"";
   $("transitionSeconds").value=String(state.transitionSeconds||0);
-  $("hrBox").style.display=R[state.rhythm].usesRate?"":"none";
+  $("convRate").style.display=state.shockConversion&&R[state.shockConversion].usesRate?"":"none";
+  $("powerLabel").textContent=state.monitorOn?"Monitor eingeschaltet":"Monitor ausgeschaltet";
   document.querySelector('input[data-key="hasPulse"]').disabled=!R[state.rhythm].pulse;
 }
 function renderBar(){$("sendBar").style.display=live?"none":"block";$("sendBtn").disabled=!dirty;$("sendBtn").textContent=dirty?"An Monitor senden":"Alles gesendet"}
@@ -188,7 +191,7 @@ document.addEventListener("change",e=>{
   const el=e.target;if(!state&&el.id!=="live")return;
   if(el.matches("input.sw[data-key]"))setValue(el.dataset.key,el.checked);
   else if(el.id==="rhythm"){const r=R[el.value];state.rhythm=el.value;if(r.usesRate)state.heartRate=r.rate;state.hasPulse=r.pulse;changed()}
-  else if(el.id==="shockConversion"){state.shockConversion=el.value||null;changed()}
+  else if(el.id==="shockConversion"){state.shockConversion=el.value||null;if(state.shockConversion&&R[state.shockConversion].usesRate)state.shockConversionRate=R[state.shockConversion].rate;changed()}
   else if(el.id==="transitionSeconds"){state.transitionSeconds=+el.value;changed()}
   else if(el.id==="live"){live=el.checked;if(live&&dirty)send();renderBar()}
 });
@@ -205,9 +208,13 @@ document.addEventListener("click",e=>{
 });
 
 function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+let lastServerOn=null;
 function handleStatus(j){
   monitorName=j.monitorName;
-  if(!state||(live&&!dirty&&Date.now()-lastLocalChange>3000)){state=j.state;if(state.shockConversion===undefined)state.shockConversion=null;render()}
+  // Am Monitor selbst ein- oder ausgeschaltet → sofort übernehmen (beim Ausschalten setzt er alles zurück)
+  const powerChanged=lastServerOn!==null&&j.state.monitorOn!==lastServerOn;
+  lastServerOn=j.state.monitorOn;
+  if(!state||powerChanged||(live&&!dirty&&Date.now()-lastLocalChange>3000)){state=j.state;if(state.shockConversion===undefined)state.shockConversion=null;dirty=false;renderBar();render()}
   const ev=$("events");
   ev.innerHTML=j.events.length?j.events.map(e=>`<div class="ev"><small>${new Date(e.date).toLocaleTimeString("de-DE")}</small>${esc(e.text)}</div>`).join("")
     :`<div class="ev"><small>Noch keine Aktionen am Monitor.</small></div>`;
