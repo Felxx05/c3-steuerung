@@ -105,7 +105,7 @@ const RHYTHMS=[
  ["afib","Vorhofflimmern",110,true],["aflutter","Vorhofflattern",150,true],["svt","Supraventrikuläre Tachykardie",190,true],
  ["avBlock1","AV-Block I°",70,true],["avBlock2Wenckebach","AV-Block II° Wenckebach",55,true],["avBlock2Mobitz","AV-Block II° Mobitz (2:1)",40,true],
  ["avBlock3","AV-Block III°",35,true],["pacemaker","Schrittmacher-Rhythmus",70,true],["vt","Ventrikuläre Tachykardie",180,true],
- ["torsade","Torsade de Pointes",230,false],["vf","Kammerflimmern",0,false],["asystole","Asystolie",0,false]];
+ ["torsade","Torsade de Pointes",230,false],["vf","Kammerflimmern",0,false],["pea","PEA (pulslose elektrische Aktivität)",45,false],["asystole","Asystolie",0,false]];
 const R=Object.fromEntries(RHYTHMS.map(r=>[r[0],{name:r[1],rate:r[2],pulse:r[3],usesRate:r[0]!=="vf"&&r[0]!=="asystole"}]));
 // name, Beschreibung, Rhythmus, HF, Puls, SpO2, sys, dia, AF, etCO2, Temp
 const SCENARIOS=[
@@ -122,7 +122,7 @@ const SCENARIOS=[
  ["VT mit Puls","Breitkomplextachykardie, Patient wach","vt",180,true,94,90,60,24,32,36.8],
  ["Kammerflimmern","Reanimation, schockbarer Rhythmus","vf",0,false,0,0,0,10,18,36.0],
  ["Pulslose VT","Reanimation, schockbarer Rhythmus","vt",190,false,0,0,0,10,18,36.0],
- ["PEA","Organisierter Rhythmus ohne Auswurf","sinus",50,false,0,0,0,10,14,36.0],
+ ["PEA","Organisierter Rhythmus ohne Auswurf","pea",45,false,0,0,0,10,14,36.0],
  ["Asystolie","Reanimation, nicht schockbar","asystole",0,false,0,0,0,10,12,35.9],
  ["ROSC","Nach erfolgreicher Reanimation","sinus",105,true,94,100,60,12,40,35.8]];
 
