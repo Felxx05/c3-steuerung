@@ -33,6 +33,9 @@ input[type=range]{flex:1;accent-color:var(--blue);height:30px}
 .btn.red{color:var(--red)}
 .sc{display:block;width:100%;text-align:left;border:0;background:transparent;font:inherit;color:var(--text);padding:11px 16px;border-bottom:.5px solid var(--line)}
 .sc:last-child{border-bottom:0}.sc small{display:block;color:var(--sub);font-size:13px;margin-top:2px}
+.txt{flex:1;font:inherit;color:var(--text);background:transparent;border:0;outline:0;padding:0;min-width:0}
+.pill{width:100%;border:0;border-radius:10px;background:var(--blue);color:#fff;font:600 16px -apple-system,system-ui;padding:11px}
+.pm.del{font-size:20px}
 .dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:10px;background:var(--red)}
 .ev{padding:9px 16px;border-bottom:.5px solid var(--line);font-size:15px}.ev:last-child{border-bottom:0}.ev small{color:var(--sub);font-variant-numeric:tabular-nums;margin-right:8px}
 .bar{position:fixed;left:0;right:0;bottom:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:var(--bg);border-top:.5px solid var(--line);display:none}
@@ -88,8 +91,14 @@ input[type=range]{flex:1;accent-color:var(--blue);height:30px}
 <div class="g" id="pacer"></div>
 <div class="sf">Ab dieser Stromstärke folgt auf jeden Pacer-Impuls ein breiter Kammerkomplex. Ohne mechanische Capture bleibt der Patient trotzdem pulslos.</div>
 
-<div class="sh">Szenarien</div>
-<div class="g" id="scenarios"></div>
+<div class="sh">Eigene Szenarien</div>
+<div class="g" id="scenarios"><div class="ev"><small>Noch keine Szenarien gespeichert.</small></div></div>
+<div class="g" style="margin-top:10px">
+ <div class="r"><input class="txt" id="scnName" placeholder="Name, z. B. Hinterwandinfarkt" maxlength="60" autocomplete="off"></div>
+ <div class="r"><input class="txt" id="scnNote" placeholder="Beschreibung (optional)" maxlength="200" autocomplete="off"></div>
+ <div class="r"><button class="pill" id="scnSave">Aktuelle Einstellungen als Szenario speichern</button></div>
+</div>
+<div class="sf">Gespeichert werden Rhythmus, Frequenz, Puls, Vitalwerte, Rhythmus nach Schock und Pacer-Schwelle. Die Szenarien liegen dauerhaft auf dem iPad und sind von jedem gekoppelten Handy aus sichtbar. Gleicher Name überschreibt das alte Szenario.</div>
 
 <div class="sh">Protokoll vom Monitor</div>
 <div class="g" id="events"><div class="ev"><small>Noch keine Aktionen am Monitor.</small></div></div>
@@ -107,24 +116,6 @@ const RHYTHMS=[
  ["avBlock3","AV-Block III°",35,true],["pacemaker","Schrittmacher-Rhythmus",70,true],["vt","Ventrikuläre Tachykardie",180,true],
  ["torsade","Torsade de Pointes",230,false],["vf","Kammerflimmern",0,false],["pea","PEA (pulslose elektrische Aktivität)",45,false],["asystole","Asystolie",0,false]];
 const R=Object.fromEntries(RHYTHMS.map(r=>[r[0],{name:r[1],rate:r[2],pulse:r[3],usesRate:r[0]!=="vf"&&r[0]!=="asystole"}]));
-// name, Beschreibung, Rhythmus, HF, Puls, SpO2, sys, dia, AF, etCO2, Temp
-const SCENARIOS=[
- ["Normalbefund","Gesunder Erwachsener in Ruhe","sinus",75,true,98,125,80,14,38,36.8],
- ["STEMI Vorderwand","ST-Hebung V1–V4, 12-Kanal-EKG nötig","stemiAnterior",95,true,94,150,95,20,34,36.9],
- ["STEMI Hinterwand","ST-Hebung II, III, aVF, bradykard und hypoton","stemi",52,true,95,95,60,18,35,36.7],
- ["Hypovolämischer Schock","Tachykard, hypoton, blass","sinus",130,true,93,80,50,26,28,35.8],
- ["Anaphylaxie","Tachykardie, Hypotonie, Bronchospasmus","sinus",140,true,88,75,40,30,45,37.1],
- ["Sepsis","Fieber, Tachykardie, Hypotonie","sinus",125,true,92,85,50,26,30,39.4],
- ["COPD-Exazerbation","Hypoxie und Hyperkapnie","sinus",110,true,84,145,90,28,58,37.6],
- ["Tachyarrhythmia absoluta","Vorhofflimmern mit schneller Überleitung","afib",150,true,95,105,70,20,35,36.7],
- ["SVT","Regelmäßige Schmalkomplextachykardie","svt",200,true,97,110,75,20,35,36.8],
- ["AV-Block III°","Symptomatische Bradykardie","avBlock3",32,true,95,80,45,18,36,36.5],
- ["VT mit Puls","Breitkomplextachykardie, Patient wach","vt",180,true,94,90,60,24,32,36.8],
- ["Kammerflimmern","Reanimation, schockbarer Rhythmus","vf",0,false,0,0,0,10,18,36.0],
- ["Pulslose VT","Reanimation, schockbarer Rhythmus","vt",190,false,0,0,0,10,18,36.0],
- ["PEA","Organisierter Rhythmus ohne Auswurf","pea",45,false,0,0,0,10,14,36.0],
- ["Asystolie","Reanimation, nicht schockbar","asystole",0,false,0,0,0,10,12,35.9],
- ["ROSC","Nach erfolgreicher Reanimation","sinus",105,true,94,100,60,12,40,35.8]];
 
 let state=null, live=true, dirty=false, lastLocalChange=0, sendTimer=null, online=false;
 const $=id=>document.getElementById(id);
@@ -144,7 +135,6 @@ $("bp").innerHTML=sliderRow("nibpSys","Systolisch","mmHg",0,280,1)+sliderRow("ni
 $("pacer").innerHTML=sliderRow("pacerThreshold","Reizschwelle","mA",0,200,5)+toggleRow("pacerMechanicalCapture","Mechanische Capture (Puls bei Stimulation)");
 $("rhythm").innerHTML=RHYTHMS.map(r=>`<option value="${r[0]}">${r[1]}</option>`).join("");
 $("shockConversion").innerHTML=`<option value="">Unverändert</option>`+RHYTHMS.map(r=>`<option value="${r[0]}">${r[1]}</option>`).join("");
-$("scenarios").innerHTML=SCENARIOS.map((s,i)=>`<button class="sc" data-scn="${i}">${s[0]}<small>${s[1]}</small></button>`).join("");
 
 function setValue(key,v){
   if(key==="nibpSys"){state.nibpSys=v;if(state.nibpDia>=v)state.nibpDia=Math.max(0,v-10)}
@@ -169,6 +159,19 @@ async function send(){
   }
   try{await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(state)});dirty=false;renderBar()}
   catch(e){setOnline(false)}
+}
+const SCN_KEYS=["rhythm","heartRate","hasPulse","spo2","respRate","etco2","temperature","nibpSys","nibpDia","shockConversion","shockConversionRate","pacerThreshold","pacerMechanicalCapture"];
+let scenarios=[],scenarioJSON="";
+async function sendScenario(msg){
+  if(RELAY){if(client&&client.connected)client.publish(topic("control"),JSON.stringify(msg));return}
+  try{if(msg.saveScenario)await fetch("/api/scenario",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(msg.saveScenario)});
+   else await fetch("/api/scenario/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:msg.deleteScenario})})}
+  catch(e){setOnline(false)}
+}
+function renderScenarios(list){
+  const j=JSON.stringify(list||[]);if(j===scenarioJSON)return;scenarioJSON=j;scenarios=list||[];
+  $("scenarios").innerHTML=scenarios.length?scenarios.map(c=>`<div class="r"><button class="sc" style="flex:1;border:0;padding:0" data-load="${esc(c.id)}">${esc(c.name)}<small>${esc(c.note||((R[c.rhythm]||{name:c.rhythm}).name+", HF "+Math.round(c.heartRate)))}</small></button><button class="pm del" data-del="${esc(c.id)}" aria-label="Löschen">🗑</button></div>`).join("")
+    :`<div class="ev"><small>Noch keine Szenarien gespeichert.</small></div>`;
 }
 function fmt(v,step){return step<1?Number(v).toFixed(1):String(Math.round(v))}
 
@@ -202,19 +205,29 @@ document.addEventListener("click",e=>{
   if(b.dataset.inc||b.dataset.dec){const k=b.dataset.inc||b.dataset.dec,el=range(k),st=+el.step,d=b.dataset.inc?st:-st;
     setValue(k,Math.min(+el.max,Math.max(+el.min,Math.round((state[k]+d)/st)*st)))}
   else if(b.id==="allOn"||b.id==="allOff"){const on=b.id==="allOn";["ecgAttached","spo2Attached","nibpAttached","co2Attached","tempAttached"].forEach(k=>state[k]=on);if(!on){state.ecg12Attached=false;state.padsAttached=false}changed()}
-  else if(b.dataset.scn){const s=SCENARIOS[+b.dataset.scn];Object.assign(state,{rhythm:s[2],heartRate:s[3],hasPulse:s[4]&&R[s[2]].pulse,spo2:s[5],nibpSys:s[6],nibpDia:s[7],respRate:s[8],etco2:s[9],temperature:s[10],cprArtifact:false,motionArtifact:false});
+  else if(b.dataset.load){const c=scenarios.find(x=>x.id===b.dataset.load);if(!c)return;
+    SCN_KEYS.forEach(k=>state[k]=c[k]===undefined?null:c[k]);state.hasPulse=c.hasPulse&&R[c.rhythm].pulse;state.cprArtifact=false;state.motionArtifact=false;
     changed();if(!live)send();window.scrollTo({top:0,behavior:"smooth"})}
+  else if(b.dataset.del){const c=scenarios.find(x=>x.id===b.dataset.del);if(c&&confirm(`Szenario „${c.name}“ löschen?`))sendScenario({deleteScenario:c.id})}
+  else if(b.id==="scnSave"){const name=$("scnName").value.trim();if(!name){$("scnName").focus();return}
+    const c={id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),name,note:$("scnNote").value.trim()};SCN_KEYS.forEach(k=>c[k]=state[k]);
+    if(scenarios.some(x=>x.name===name)&&!confirm(`„${name}“ gibt es schon. Überschreiben?`))return;
+    sendScenario({saveScenario:c});$("scnName").value="";$("scnNote").value="";b.textContent="Gespeichert ✓";setTimeout(()=>b.textContent="Aktuelle Einstellungen als Szenario speichern",1500)}
   else if(b.id==="sendBtn")send();
 });
 
 function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
-let lastServerOn=null;
+let lastServerOn=null,lastRevision=null;
 function handleStatus(j){
   monitorName=j.monitorName;
   // Am Monitor selbst ein- oder ausgeschaltet → sofort übernehmen (beim Ausschalten setzt er alles zurück)
   const powerChanged=lastServerOn!==null&&j.state.monitorOn!==lastServerOn;
   lastServerOn=j.state.monitorOn;
-  if(!state||powerChanged||(live&&!dirty&&Date.now()-lastLocalChange>3000)){state=j.state;if(state.shockConversion===undefined)state.shockConversion=null;dirty=false;renderBar();render()}
+  // Der Monitor hat selbst etwas geändert (z. B. Schock mit Rhythmuswechsel) → sofort übernehmen
+  const monitorChanged=lastRevision!==null&&j.revision!==undefined&&j.revision!==lastRevision;
+  if(j.revision!==undefined)lastRevision=j.revision;
+  renderScenarios(j.scenarios);
+  if(!state||powerChanged||monitorChanged||(live&&!dirty&&Date.now()-lastLocalChange>3000)){state=j.state;if(state.shockConversion===undefined)state.shockConversion=null;dirty=false;renderBar();render()}
   const ev=$("events");
   ev.innerHTML=j.events.length?j.events.map(e=>`<div class="ev"><small>${new Date(e.date).toLocaleTimeString("de-DE")}</small>${esc(e.text)}</div>`).join("")
     :`<div class="ev"><small>Noch keine Aktionen am Monitor.</small></div>`;
