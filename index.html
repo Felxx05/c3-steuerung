@@ -151,7 +151,10 @@ function setValue(key,v){
 }
 function changed(){lastLocalChange=Date.now();render();if(live){clearTimeout(sendTimer);sendTimer=setTimeout(send,120)}else{dirty=true;renderBar()}}
 // Verbindung: im lokalen WLAN direkt per HTTP zum iPad, sonst übers Internet (MQTT-Broker)
-const BROKER="wss://broker.hivemq.com:8884/mqtt";
+// Gleiche Liste wie RelayClient.brokerURLs in der Monitor-App. Der Monitor ist mit allen
+// verbunden, die Seite nimmt den ersten, der aus diesem Netz erreichbar ist.
+const BROKERS=["wss://mqtt.eclipseprojects.io:443/mqtt","wss://broker.emqx.io:8084/mqtt","wss://broker.hivemq.com:8884/mqtt","wss://test.mosquitto.org:8081/mqtt"];
+let brokerIndex=0, everConnected=false, brokerTimer=null;
 const RELAY=location.protocol==="https:";
 let code=null, client=null, lastSeen=0, monitorName="";
 function topic(t){return "c3sim/"+code+"/"+t}
@@ -224,9 +227,18 @@ function startRelay(c){
   $("codeInfo").style.display="block";
   $("codeInfo").innerHTML=`Kopplungscode ${code} · <button class="btn" id="codeReset" style="font-size:13px">Anderen Monitor koppeln</button>`;
   $("conn").textContent="Verbinde …";
-  if(client)client.end(true);
-  client=mqtt.connect(BROKER,{clientId:"c3web-"+code+"-"+Math.random().toString(16).slice(2,8),clean:true,keepalive:30,reconnectPeriod:2000});
-  client.on("connect",()=>{client.subscribe(topic("status"));client.publish(topic("control"),JSON.stringify({ping:true}))});
+  brokerIndex=0;connectBroker();
+}
+function connectBroker(){
+  if(client){client.removeAllListeners();client.end(true)}
+  everConnected=false;
+  const url=BROKERS[brokerIndex], host=new URL(url).hostname;
+  $("conn").textContent="Verbinde über "+host+" …";
+  client=mqtt.connect(url,{clientId:"c3web-"+code+"-"+Math.random().toString(16).slice(2,8),clean:true,keepalive:30,connectTimeout:6000,reconnectPeriod:2000});
+  clearTimeout(brokerTimer);
+  // Klappt die erste Verbindung nicht in 7 s, nächsten Broker probieren
+  brokerTimer=setTimeout(()=>{if(!everConnected){brokerIndex=(brokerIndex+1)%BROKERS.length;connectBroker()}},7000);
+  client.on("connect",()=>{everConnected=true;clearTimeout(brokerTimer);client.subscribe(topic("status"));client.publish(topic("control"),JSON.stringify({ping:true}));checkOnline()});
   client.on("message",(t,payload)=>{
     try{const j=JSON.parse(payload.toString());lastSeen=j.sentAt?Date.parse(j.sentAt):Date.now();handleStatus(j);checkOnline()}catch(e){}
   });
@@ -234,7 +246,7 @@ function startRelay(c){
 }
 function checkOnline(){
   if(!RELAY||!code)return;
-  if(!client||!client.connected){setOnline(false);$("conn").textContent="Keine Internetverbindung";return}
+  if(!client||!client.connected){setOnline(false);$("conn").textContent=everConnected?"Verbindung unterbrochen …":"Verbinde über "+new URL(BROKERS[brokerIndex]).hostname+" …";return}
   const fresh=Date.now()-lastSeen<20000;
   if(fresh)setOnline(true,monitorName);
   else{setOnline(false);$("conn").textContent=state?"Monitor offline – App am iPad geöffnet?":"Warte auf Monitor "+code+" …"}
