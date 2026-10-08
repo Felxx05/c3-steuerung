@@ -124,6 +124,13 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
 .txt{flex:1;font:inherit;color:var(--text);background:transparent;border:0;outline:0;padding:0;min-width:0}
 .pill{width:100%;border:0;border-radius:8px;background:var(--ecg);color:#000;font:700 15px -apple-system,system-ui;padding:11px}
 .pm.del{font-size:16px;background:#3a1414}
+.pill.red{background:var(--red);color:#fff}
+textarea.txt{width:100%;resize:vertical;font:15px/1.4 -apple-system,system-ui;min-height:110px;-webkit-user-select:text;user-select:text}
+.r.stack select{background:#1e1e1e;color:var(--text);border:1px solid #333;border-radius:8px;font:15px -apple-system,system-ui}
+.r.stack label{font-size:13px;color:var(--sub)}
+.rb.dis{opacity:.38}
+#toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);max-width:min(560px,calc(100% - 32px));background:#2a2a2a;color:var(--text);border:1px solid #444;border-radius:12px;padding:12px 16px;font-size:15px;line-height:1.35;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50}
+#toast.show{opacity:1;transform:translate(-50%,0)}
 .ev{padding:8px 12px;border-bottom:1px solid #222;font-size:14px}.ev:last-child{border-bottom:0}.ev small{color:var(--sub);font-variant-numeric:tabular-nums;margin-right:8px}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
 
@@ -194,6 +201,8 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
   <nav class="rail" id="rightRail"></nav>
 </main>
 
+<div id="toast" role="status"></div>
+
 <!-- Fenster -->
 <div class="sheet" id="shCode"><div class="card">
   <header>Mit Monitor koppeln</header>
@@ -201,7 +210,7 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
     <div class="g"><div class="r"><input id="codeInput" placeholder="Kopplungscode" autocapitalize="characters" autocomplete="off" maxlength="8"
       style="font:600 20px ui-monospace,monospace;letter-spacing:2px;border:0;background:transparent;color:var(--text);width:100%;text-transform:uppercase;outline:0">
       <button class="btn" id="codeBtn">Koppeln</button></div></div>
-    <div class="sf">Scanne am besten den QR-Code am Monitor (Menü → „iPhone als Steuerung koppeln“). Oder tippe den 8-stelligen Code ab.</div>
+    <div class="sf">Scanne am besten den QR-Code am Monitor (Monitor → „Geräte koppeln“). Oder tippe den 8-stelligen Code ab.</div>
   </div>
 </div></div>
 
@@ -215,6 +224,27 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
   <header>Sensoren am Patienten<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
   <div class="cb"><div class="g" id="sensors"></div>
   <div class="sf">Erst wenn ein Sensor hier freigegeben ist, zeigt der Monitor Kurve und Wert an. Schock und Pacer gehen nur mit Pads, die 6- und 12-Kanal-Ansicht nur mit dem passenden Kabel.</div></div>
+</div></div>
+
+<div class="sheet" id="shVitals"><div class="card wide">
+  <header>FM Vitals<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
+  <div class="cb two-col">
+    <div>
+      <div class="sh">Messwerte</div>
+      <div class="g" id="vitMeas"></div>
+      <div class="sh">Auskultation</div>
+      <div class="g" id="vitSounds"></div>
+      <div class="sf">Die Geräusche hört man auf dem FM-Vitals-Gerät beim Antippen der Abhörpunkte. Herztöne laufen mit der Herzfrequenz vom Monitor, ohne Puls sind sie still.</div>
+    </div>
+    <div>
+      <div class="sh">Melder</div>
+      <div class="g">
+        <div class="r stack"><textarea class="txt" id="pagerDraft" rows="6" maxlength="400" placeholder="Einsatzmeldung, z. B.&#10;RD 1 – Atemnot&#10;Musterstr. 12, 12345 Musterstadt&#10;männlich, 67 J."></textarea></div>
+        <div class="r"><button class="pill red" id="pagerFire">Einsatz auslösen</button></div>
+      </div>
+      <div class="sf" id="pagerInfo"></div>
+    </div>
+  </div>
 </div></div>
 
 <div class="sheet" id="shRhythm"><div class="card wide">
@@ -317,7 +347,8 @@ const IC={
  pacer:'<path d="M3 15h4V5M7 15l2 4 2-10 2 6h8"/>',
  scn:'<path d="M3 6h18M3 12h18M3 18h12"/>',
  pads:'<rect x="3" y="6" width="7" height="12" rx="2"/><rect x="14" y="6" width="7" height="12" rx="2"/><path d="M6.5 6V3M17.5 6V3"/>',
- log:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'};
+ log:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+ vit:'<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M9 12h1.5l1-2 1.5 4 1-2H15M11 19h2"/>'};
 const icon=n=>`<svg viewBox="0 0 24 24">${IC[n]}</svg>`;
 
 $("leftRail").innerHTML=
@@ -326,7 +357,7 @@ $("leftRail").innerHTML=
  +`<button class="rb" data-tg="hasPulse" style="--c:var(--ecg)">${icon("pulse")}Puls<br>tastbar</button>`
  +`<div class="rb temp" id="tempBox"><button class="lbl" data-tg="tempAttached">TEMP °C</button><span class="v" data-out="temperature" data-unit="" data-step="0.1"></span><div class="pm2">${pm("temperature")}</div></div>`
  +`<button class="rb" data-tg="padsAttached" style="--c:#ff9f0a">${icon("pads")}Pads</button>`
- +`<button class="rb" data-open="shSensors">${icon("sens")}Sensoren<span class="badge" id="sensCount"></span></button>`;
+ +`<button class="rb dis" id="vitalsBtn" style="--c:#64d2ff">${icon("vit")}FM Vitals<span class="badge" id="vitCount"></span></button>`;
 SPEC.temperature={min:30,max:43,step:0.1};
 
 $("rightRail").innerHTML=
@@ -398,6 +429,16 @@ $("convAfter").innerHTML=sliderRow("shockConversionAfter","Schocks bis zum Wechs
 $("convRate").innerHTML=sliderRow("shockConversionRate","Frequenz nach Schock","/min",20,250,1);
 $("ecgToggles").innerHTML=toggleRow("hasPulse","Puls tastbar (Auswurf)")+toggleRow("cprArtifact","HLW-Artefakte (Thoraxkompressionen)")+toggleRow("motionArtifact","Bewegungsartefakte");
 $("pacer").innerHTML=toggleRow("pacerActive","Pacer eingeschaltet")+sliderRow("pacerThreshold","Reizschwelle","mA",0,200,5)+toggleRow("pacerMechanicalCapture","Mechanische Capture (Puls bei Stimulation)");
+const LUNG=[["normal","Vesikulär (normal)"],["abgeschwaecht","Abgeschwächt"],["aufgehoben","Aufgehoben (z. B. Pneumothorax)"],["giemen","Giemen (Asthma, COPD)"],["brummen","Brummen (Bronchitis, Sekret)"],["rgfeucht","Feuchte Rasselgeräusche (Lungenödem)"],["knistern","Knisterrasseln (Pneumonie)"],["bronchial","Bronchialatmen (Pneumonie)"],["stridor","Inspiratorischer Stridor"],["pleura","Pleurareiben"]];
+const LUNGSIDE=[["beidseits","Beidseits"],["links","Nur links"],["rechts","Nur rechts"]];
+const HEART=[["normal","Normale Herztöne"],["leise","Leise Herztöne (Perikarderguss)"],["as","Systolikum – Aortenstenose"],["mi","Systolikum – Mitralinsuffizienz"],["ai","Diastolikum – Aorteninsuffizienz"],["s3","3. Herzton (Galopp)"],["reiben","Perikardreiben"]];
+const BOWEL=[["normal","Normale Darmgeräusche"],["gesteigert","Gesteigert (Gastroenteritis)"],["klingend","Hochgestellt, klingend (mech. Ileus)"],["spaerlich","Spärlich"],["stille","Totenstille (paralytischer Ileus)"]];
+const selRow=(key,label,list)=>`<div class="r stack"><label>${label}</label><select data-key="${key}">${list.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join("")}</select></div>`;
+$("vitMeas").innerHTML=sliderRow("bloodGlucose","Blutzucker","mmol/l",1,33.3,0.1)+sliderRow("temperature","Temperatur (Ohr)","°C",30,43,0.1);
+$("vitSounds").innerHTML=selRow("lungSound","Lunge",LUNG)+selRow("lungSide","Lungenbefund auf",LUNGSIDE)+selRow("heartSound","Herz",HEART)+selRow("abdomenSound","Bauch",BOWEL);
+const VDEF={bloodGlucose:5.8,lungSound:"normal",lungSide:"beidseits",heartSound:"normal",abdomenSound:"normal",pagerText:"",pagerAlarmID:0,pagerAlarmAt:0,vitalsDevices:0};
+let toastTimer=null;
+function toast(t){const el=$("toast");el.textContent=t;el.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),3500)}
 $("shockConversion").innerHTML=`<option value="">Unverändert</option>`+RHYTHMS.map(r=>`<option value="${r[0]}">${r[1]}</option>`).join("");
 
 // ---------- Kurven-Vorschau (nur zur Orientierung, gezeichnet aus einfachen Formen) ----------
@@ -512,6 +553,7 @@ function fmt(v,step){return v===null||v===undefined?"--":step<1?Number(v).toFixe
 
 function render(){
   if(!state)return;
+  for(const k in VDEF)if(state[k]===undefined||state[k]===null)state[k]=VDEF[k];
   const r=R[state.rhythm]||R.sinus;
   document.querySelectorAll("input.sw[data-key]").forEach(el=>{el.checked=!!state[el.dataset.key]});
   document.querySelectorAll("[data-tg]").forEach(el=>el.classList.toggle("on",!!state[el.dataset.tg]));
@@ -534,8 +576,11 @@ function render(){
   $("pulseSub").textContent=pulse?"Puls "+(arr?Math.round(state.rateMin)+"–"+Math.round(state.rateMax):Math.round(state.heartRate))+" /min":"kein Puls";
   $("bpBig").textContent=Math.round(state.nibpSys)+"/"+Math.round(state.nibpDia);
   $("mapSub").textContent="MAD "+Math.round(state.nibpDia+(state.nibpSys-state.nibpDia)/3);
-  const n=["ecgAttached","ecg12Attached","padsAttached","spo2Attached","nibpAttached","co2Attached","tempAttached"].filter(k=>state[k]).length;
-  $("sensCount").textContent=n+"/7";
+  const vd=state.vitalsDevices||0;
+  $("vitalsBtn").classList.toggle("dis",!vd);$("vitCount").textContent=vd>1?vd:"";
+  if(!vd&&$("shVitals").classList.contains("open"))$("shVitals").classList.remove("open");
+  document.querySelectorAll("select[data-key]").forEach(el=>{if(document.activeElement!==el)el.value=state[el.dataset.key]});
+  $("pagerInfo").textContent=state.pagerAlarmID?"Zuletzt ausgelöst "+new Date(state.pagerAlarmAt*1000).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})+": "+state.pagerText.replace(/\n/g," · "):"Noch kein Einsatz ausgelöst.";
   document.querySelectorAll(".tile").forEach(el=>el.classList.toggle("on",el.dataset.rhythm===state.rhythm));
   renderWaves();
   $("shockConversion").value=state.shockConversion||"";
@@ -584,6 +629,7 @@ document.addEventListener("click",e=>{
   if(e.target.classList.contains("sheet")||e.target.closest(".x")){closeSheets();return}
   const b=e.target.closest("button");if(!b)return;
   if(b.dataset.open){openSheet(b.dataset.open);return}
+  if(b.id==="vitalsBtn"){if(state&&state.vitalsDevices)openSheet("shVitals");else toast("Verbinde erst ein weiteres Gerät mit FM Vitals über den Monitor, um diese Funktion nutzen zu können.");return}
   if(b.dataset.peer){post({connect:b.dataset.peer});return}
   if(b.id==="peerOff"){post({disconnect:true});return}
   if(b.dataset.cat){catIndex=+b.dataset.cat;renderCats();return}
@@ -602,8 +648,12 @@ document.addEventListener("click",e=>{
     const c={id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),name,note:$("scnNote").value.trim()};SCN_KEYS.forEach(k=>c[k]=state[k]);
     if(scenarios.some(x=>x.name===name)&&!confirm(`„${name}“ gibt es schon. Überschreiben?`))return;
     sendScenario({saveScenario:c});$("scnName").value="";$("scnNote").value="";b.textContent="Gespeichert ✓";setTimeout(()=>b.textContent="Aktuelle Einstellungen als Szenario speichern",1500)}
+  else if(b.id==="pagerFire"){const t=$("pagerDraft").value.trim();if(!t){$("pagerDraft").focus();toast("Bitte zuerst die Einsatzmeldung eingeben.");return}
+    state.pagerText=t;state.pagerAlarmID=(state.pagerAlarmID||0)+1;state.pagerAlarmAt=Date.now()/1000;changed();if(!live)send();
+    b.textContent="Ausgelöst ✓";setTimeout(()=>b.textContent="Einsatz auslösen",1800)}
   else if(b.id==="sendBtn")send();
 });
+document.addEventListener("change",e=>{const el=e.target;if(el.tagName==="SELECT"&&el.dataset.key&&state)setValue(el.dataset.key,el.value)});
 
 function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 let lastServerOn=null,lastRevision=null;
@@ -616,6 +666,8 @@ function handleStatus(j){
   const monitorChanged=lastRevision!==null&&j.revision!==undefined&&j.revision!==lastRevision;
   if(j.revision!==undefined)lastRevision=j.revision;
   renderScenarios(j.scenarios);
+  // Verbundene FM-Vitals-Geräte meldet nur der Monitor – immer übernehmen
+  if(state&&j.state&&(j.state.vitalsDevices||0)!==(state.vitalsDevices||0)){state.vitalsDevices=j.state.vitalsDevices||0;render()}
   if(!state||powerChanged||monitorChanged||(live&&!dirty&&!drag&&Date.now()-lastLocalChange>3000)){state=j.state;if(state.shockConversion===undefined)state.shockConversion=null;dirty=false;renderBar();render()}
   const ev=$("events");
   ev.innerHTML=j.events.length?j.events.map(e=>`<div class="ev"><small>${new Date(e.date).toLocaleTimeString("de-DE")}</small>${esc(e.text)}</div>`).join("")
