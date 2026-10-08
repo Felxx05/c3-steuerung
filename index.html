@@ -45,6 +45,7 @@ select{font:600 14px -apple-system,system-ui;color:var(--text);background:var(--
 .rb.on{background:var(--c,var(--ecg));border-color:var(--c,var(--ecg));color:#000}
 .rb:disabled{opacity:.35}
 .rb .badge{position:absolute;top:5px;right:6px;min-width:18px;padding:1px 5px;border-radius:9px;background:var(--key);color:var(--text);font-size:11px}
+.rb .badge:empty{display:none}
 .rb.send{background:#0a3d18;border-color:var(--ecg);color:var(--ecg)}
 .rb.send:disabled{opacity:.4}
 .temp{flex:1.4 1 0;max-height:150px;color:var(--temp);cursor:default}
@@ -196,6 +197,12 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
       <button class="btn" id="codeBtn">Koppeln</button></div></div>
     <div class="sf">Scanne am besten den QR-Code am Monitor (Menü → „iPhone als Steuerung koppeln“). Oder tippe den 8-stelligen Code ab.</div>
   </div>
+</div></div>
+
+<div class="sheet" id="shConnect"><div class="card">
+  <header>Mit Monitor verbinden<button class="x">✕</button></header>
+  <div class="cb"><div class="g" id="peers"></div>
+  <div class="sf">Beide Geräte brauchen eingeschaltetes WLAN oder Bluetooth und müssen den Zugriff auf das lokale Netzwerk erlauben. Den Namen des Monitors zeigt die Monitor-App oben links.</div></div>
 </div></div>
 
 <div class="sheet" id="shSensors"><div class="card">
@@ -440,11 +447,15 @@ function changed(){lastLocalChange=Date.now();render();if(live){clearTimeout(sen
 // verbunden, die Seite nimmt den ersten, der aus diesem Netz erreichbar ist.
 const BROKERS=["wss://mqtt.eclipseprojects.io:443/mqtt","wss://broker.emqx.io:8084/mqtt","wss://broker.hivemq.com:8884/mqtt","wss://test.mosquitto.org:8081/mqtt"];
 let brokerIndex=0, everConnected=false, brokerTimer=null;
-const RELAY=location.protocol==="https:";
+// In der Trainer-App läuft diese Seite in einer WebView; dann geht alles über die App (Multipeer).
+const NATIVE=!!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.c3);
+function post(o){window.webkit.messageHandlers.c3.postMessage(JSON.stringify(o))}
+const RELAY=!NATIVE&&location.protocol==="https:";
 let code=null, client=null, lastSeen=0, monitorName="";
 function topic(t){return "c3sim/"+code+"/"+t}
 async function send(){
   if(!state)return;
+  if(NATIVE){post({state});dirty=false;renderBar();return}
   if(RELAY){
     if(!client||!client.connected)return;
     client.publish(topic("control"),JSON.stringify({state}));dirty=false;renderBar();return;
@@ -455,6 +466,7 @@ async function send(){
 const SCN_KEYS=["rhythm","heartRate","hasPulse","arrhythmic","rateMin","rateMax","vesPerMinute","spo2","respRate","etco2","temperature","nibpSys","nibpDia","shockConversion","shockConversionRate","shockConversionAfter","pacerThreshold","pacerMechanicalCapture"];
 let scenarios=[],scenarioJSON="";
 async function sendScenario(msg){
+  if(NATIVE){post(msg);return}
   if(RELAY){if(client&&client.connected)client.publish(topic("control"),JSON.stringify(msg));return}
   try{if(msg.saveScenario)await fetch("/api/scenario",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(msg.saveScenario)});
    else await fetch("/api/scenario/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:msg.deleteScenario})})}
@@ -536,6 +548,8 @@ document.addEventListener("click",e=>{
   if(e.target.classList.contains("sheet")||e.target.closest(".x")){closeSheets();return}
   const b=e.target.closest("button");if(!b)return;
   if(b.dataset.open){openSheet(b.dataset.open);return}
+  if(b.dataset.peer){post({connect:b.dataset.peer});return}
+  if(b.id==="peerOff"){post({disconnect:true});return}
   if(b.dataset.cat){catIndex=+b.dataset.cat;renderCats();return}
   if(!state)return;
   if(b.dataset.rhythm){const id=b.dataset.rhythm,r=R[id];state.rhythm=id;if(r.usesRate)state.heartRate=r.rate;state.hasPulse=r.pulse;changed()}
@@ -619,9 +633,27 @@ document.addEventListener("click",e=>{
 
 // Nur Querformat: wo der Browser es erlaubt, festhalten (sonst zeigt die Seite einen Hinweis)
 try{screen.orientation&&screen.orientation.lock&&screen.orientation.lock("landscape").catch(()=>{})}catch(e){}
+// Trainer-App: Status kommt von der App, Monitore in der Nähe werden zur Auswahl angezeigt
+let wasConnected=null;
+function renderPeers(j){
+  const list=j.monitors||[];
+  $("peers").innerHTML=(list.length?list.map(m=>`<div class="r"><span>${esc(m.name)}</span>${m.status==="connected"?`<b style="color:var(--ecg)">Verbunden ✓</b>`
+    :m.status==="connecting"?`<small style="color:var(--sub)">Verbinde …</small>`:`<button class="btn" data-peer="${esc(m.id)}">Verbinden</button>`}</div>`).join("")
+    :`<div class="ev"><small>Suche Monitore in der Nähe …</small></div>`)
+    +(j.connected?`<div class="r"><button class="btn red" id="peerOff">Trennen</button></div>`:"");
+  if(wasConnected===null&&!j.connected)openSheet("shConnect");
+  if(wasConnected===false&&j.connected)$("shConnect").classList.remove("open");
+  wasConnected=!!j.connected;
+}
+window.c3Status=j=>{setOnline(!!j.connected,j.monitorName);renderPeers(j);handleStatus(j)};
+
 renderCats();
 renderBar();
-if(RELAY){
+if(NATIVE){
+  $("codeInfo").style.display="block";
+  $("codeInfo").innerHTML=`<button class="lnk" data-open="shConnect">Verbindung</button>`;
+  post({ready:true});
+}else if(RELAY){
   const c=new URLSearchParams(location.search).get("code")||stored("c3code");
   if(c)startRelay(c);else showCodeEntry();
   setInterval(checkOnline,2000);
