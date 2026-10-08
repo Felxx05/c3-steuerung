@@ -73,6 +73,8 @@ input[type=range]{flex:1;accent-color:var(--blue);height:30px}
 <div class="g">
   <div class="r stack"><span>Rhythmus</span><select id="rhythm"></select></div>
   <div id="hrBox"></div>
+  <div class="r"><span>Arrhythmisch (unregelmäßig)</span><input type="checkbox" class="sw" data-key="arrhythmic"></div>
+  <div id="arrBox"></div>
   <div id="ecgToggles"></div>
 </div>
 
@@ -128,6 +130,7 @@ $("sensors").innerHTML=toggleRow("ecgAttached","EKG 4-polig (6 Ableitungen)")+to
  +toggleRow("co2Attached","CO₂ (Kapnografie)")+toggleRow("tempAttached","Temperatursonde")
  +`<div class="r"><button class="btn" id="allOn">Alle anlegen</button><button class="btn red" id="allOff">Alle entfernen</button></div>`;
 $("hrBox").innerHTML=sliderRow("heartRate","Herzfrequenz","/min",20,250,1);
+$("arrBox").innerHTML=sliderRow("rateMin","Frequenz von","/min",20,250,1)+sliderRow("rateMax","Frequenz bis","/min",20,250,1);
 $("convAfter").innerHTML=sliderRow("shockConversionAfter","Schocks bis zum Wechsel","",1,10,1);
 $("convRate").innerHTML=sliderRow("shockConversionRate","Frequenz nach Schock","/min",20,250,1);
 $("ecgToggles").innerHTML=toggleRow("hasPulse","Puls tastbar (Auswurf)")+toggleRow("cprArtifact","HLW-Artefakte (Thoraxkompressionen)")+toggleRow("motionArtifact","Bewegungsartefakte");
@@ -161,7 +164,7 @@ async function send(){
   try{await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(state)});dirty=false;renderBar()}
   catch(e){setOnline(false)}
 }
-const SCN_KEYS=["rhythm","heartRate","hasPulse","spo2","respRate","etco2","temperature","nibpSys","nibpDia","shockConversion","shockConversionRate","shockConversionAfter","pacerThreshold","pacerMechanicalCapture"];
+const SCN_KEYS=["rhythm","heartRate","hasPulse","arrhythmic","rateMin","rateMax","spo2","respRate","etco2","temperature","nibpSys","nibpDia","shockConversion","shockConversionRate","shockConversionAfter","pacerThreshold","pacerMechanicalCapture"];
 let scenarios=[],scenarioJSON="";
 async function sendScenario(msg){
   if(RELAY){if(client&&client.connected)client.publish(topic("control"),JSON.stringify(msg));return}
@@ -184,6 +187,8 @@ function render(){
   $("rhythm").value=state.rhythm;
   $("shockConversion").value=state.shockConversion||"";
   $("transitionSeconds").value=String(state.transitionSeconds||0);
+  $("arrBox").style.display=state.arrhythmic?"":"none";
+  $("hrBox").style.display=state.arrhythmic&&R[state.rhythm].usesRate?"none":"";
   $("convAfter").style.display=state.shockConversion?"":"none";
   $("convRate").style.display=state.shockConversion&&R[state.shockConversion].usesRate?"":"none";
   $("powerLabel").textContent=state.monitorOn?"Monitor eingeschaltet":"Monitor ausgeschaltet";
@@ -208,7 +213,7 @@ document.addEventListener("click",e=>{
     setValue(k,Math.min(+el.max,Math.max(+el.min,Math.round((state[k]+d)/st)*st)))}
   else if(b.id==="allOn"||b.id==="allOff"){const on=b.id==="allOn";["ecgAttached","spo2Attached","nibpAttached","co2Attached","tempAttached"].forEach(k=>state[k]=on);if(!on){state.ecg12Attached=false;state.padsAttached=false}changed()}
   else if(b.dataset.load){const c=scenarios.find(x=>x.id===b.dataset.load);if(!c)return;
-    SCN_KEYS.forEach(k=>state[k]=c[k]===undefined?null:c[k]);state.hasPulse=c.hasPulse&&R[c.rhythm].pulse;state.shockConversionAfter=c.shockConversionAfter||1;state.cprArtifact=false;state.motionArtifact=false;
+    SCN_KEYS.forEach(k=>state[k]=c[k]===undefined?null:c[k]);state.hasPulse=c.hasPulse&&R[c.rhythm].pulse;state.shockConversionAfter=c.shockConversionAfter||1;state.arrhythmic=!!c.arrhythmic;state.rateMin=c.rateMin||60;state.rateMax=c.rateMax||100;state.cprArtifact=false;state.motionArtifact=false;
     changed();if(!live)send();window.scrollTo({top:0,behavior:"smooth"})}
   else if(b.dataset.del){const c=scenarios.find(x=>x.id===b.dataset.del);if(c&&confirm(`Szenario „${c.name}“ löschen?`))sendScenario({deleteScenario:c.id})}
   else if(b.id==="scnSave"){const name=$("scnName").value.trim();if(!name){$("scnName").focus();return}
