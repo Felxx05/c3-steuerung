@@ -2,113 +2,265 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="C3 Steuerung">
-<title>C3 Steuerung</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="FM 112">
+<meta name="theme-color" content="#000000">
+<title>FM 112 Steuerung</title>
 <style>
-:root{--bg:#f2f2f7;--card:#fff;--text:#000;--sub:#6d6d72;--line:#c6c6c8;--blue:#007aff;--green:#34c759;--red:#ff3b30;--off:#e9e9ea}
-@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--text:#fff;--sub:#8e8e93;--line:#38383a;--off:#39393d}}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:var(--bg);color:var(--text);font:17px -apple-system,system-ui,sans-serif;padding:0 16px calc(90px + env(safe-area-inset-bottom))}
-h1{font-size:30px;margin:14px 4px 8px}
-.sh{font-size:13px;color:var(--sub);text-transform:uppercase;margin:22px 16px 6px}
-.sf{font-size:13px;color:var(--sub);margin:6px 16px 0;line-height:1.35}
-.g{background:var(--card);border-radius:12px;overflow:hidden}
-.r{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;border-bottom:.5px solid var(--line);min-height:46px}
-.r:last-child{border-bottom:0}
-.sw{appearance:none;-webkit-appearance:none;width:51px;height:31px;border-radius:16px;background:var(--off);position:relative;flex:none;margin:0;transition:background .2s}
-.sw:checked{background:var(--green)}
-.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.25);transition:left .2s}
-.sw:checked::after{left:22px}.sw:disabled{opacity:.4}
-select{font:inherit;color:var(--sub);background:transparent;border:0;text-align:right}
-.r.stack{flex-direction:column;align-items:stretch;gap:4px}
-.r.stack select{text-align:left;color:var(--blue);font-weight:600;width:100%;padding:4px 0}
-.sl{padding:10px 16px;border-bottom:.5px solid var(--line)}.sl:last-child{border-bottom:0}
-.sl .t{display:flex;justify-content:space-between}.sl b{font-variant-numeric:tabular-nums}
-.tr{display:flex;align-items:center;gap:12px;margin-top:6px}
-.pm{border:0;background:transparent;color:var(--blue);font-size:30px;line-height:1;padding:0 2px}
-input[type=range]{flex:1;accent-color:var(--blue);height:30px}
-.btn{border:0;background:transparent;font:inherit;color:var(--blue);padding:0}
+/* Farben wie am Monitor (MonitorView.swift) */
+:root{--ecg:#33ff59;--spo2:#40d9ff;--co2:#ffe633;--nibp:#f2f2f2;--temp:#ff8cd9;--red:#ff3b30;--yellow:#ffd60a;
+ --bg:#000;--panel:#121212;--key:#333;--line:#2a2a2a;--text:#f2f2f2;--sub:#8e8e93;--rail:96px;--gap:8px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--text);font:15px -apple-system,system-ui,sans-serif;overscroll-behavior:none}
+body{display:grid;grid-template-rows:auto 1fr;height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+button{font:inherit;color:inherit;cursor:pointer}
+input,textarea{-webkit-user-select:text;user-select:text}
+svg{display:block}
+
+/* Kopfzeile */
+#top{display:flex;align-items:center;gap:12px;padding:6px var(--gap);background:var(--panel);border-bottom:1px solid var(--line);min-height:46px}
+.brand{font:800 18px -apple-system,system-ui;letter-spacing:.5px;white-space:nowrap}
+.brand span{color:var(--sub);font-weight:500;font-size:14px;margin-left:4px}
+.conn{display:flex;align-items:center;gap:8px;min-width:0;flex:1;color:var(--sub);font-size:13px}
+.conn span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--red);flex:none;box-shadow:0 0 6px currentColor}
+.tsel{display:flex;align-items:center;gap:6px;color:var(--sub);font-size:13px;white-space:nowrap}
+select{font:600 14px -apple-system,system-ui;color:var(--text);background:var(--key);border:0;border-radius:6px;padding:6px 8px;-webkit-appearance:none;appearance:none}
+.power{display:flex;align-items:center;gap:8px;border:1px solid #444;background:#1c1c1c;border-radius:8px;padding:6px 12px;font-weight:700;white-space:nowrap}
+.power i{width:10px;height:10px;border-radius:50%;background:#555}
+.power.on{border-color:var(--ecg);color:var(--ecg)}.power.on i{background:var(--ecg);box-shadow:0 0 8px var(--ecg)}
+#codeInfo{font-size:12px;color:var(--sub);white-space:nowrap}
+.lnk{border:0;background:none;color:var(--spo2);padding:0;font-size:12px}
+
+/* Hauptbereich: linke Leiste · Werte-Spalten · rechte Leiste */
+#main{display:grid;grid-template-columns:var(--rail) 1fr var(--rail);gap:var(--gap);padding:var(--gap);min-height:0}
+.rail{display:flex;flex-direction:column;gap:var(--gap);min-height:0;overflow-y:auto;scrollbar-width:none}
+.rail::-webkit-scrollbar{display:none}
+.rb{flex:1 1 0;min-height:52px;max-height:110px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+ background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px;font-weight:600;font-size:13px;line-height:1.1;text-align:center;position:relative}
+.rb svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rb.on{background:var(--c,var(--ecg));border-color:var(--c,var(--ecg));color:#000}
+.rb:disabled{opacity:.35}
+.rb .badge{position:absolute;top:5px;right:6px;min-width:18px;padding:1px 5px;border-radius:9px;background:var(--key);color:var(--text);font-size:11px}
+.rb.send{background:#0a3d18;border-color:var(--ecg);color:var(--ecg)}
+.rb.send:disabled{opacity:.4}
+.temp{flex:1.4 1 0;max-height:150px;color:var(--temp);cursor:default}
+.temp .v{font:700 22px -apple-system,system-ui;font-variant-numeric:tabular-nums}
+.temp .pm2{display:flex;gap:4px;width:100%}
+.temp .pm2 button{flex:1;height:30px;border:0;border-radius:6px;background:var(--key);color:var(--text);font-size:20px;line-height:1}
+.temp .lbl{border:0;background:none;padding:0;font-weight:700;color:inherit;font-size:12px;letter-spacing:.5px}
+.temp.off .v,.temp.off .lbl{opacity:.4}
+.liveSw{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--sub)}
+
+/* Werte-Spalten */
+#cols{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--gap);min-height:0}
+.col{--c:var(--ecg);display:flex;flex-direction:column;align-items:stretch;gap:6px;background:var(--panel);border-radius:10px;padding:6px;min-height:0;border-top:3px solid var(--c)}
+.ch{border:0;border-radius:6px;background:var(--c);color:#000;font:800 15px -apple-system,system-ui;letter-spacing:.5px;padding:7px 4px;display:flex;justify-content:center;gap:6px}
+.ch small{font-weight:600;font-size:11px;align-self:center}
+.col.off .ch{background:#262626;color:#777}
+.col.off .body{opacity:.4}
+.body{display:flex;flex-direction:column;gap:6px;flex:1;min-height:0;transition:opacity .2s}
+.cur{display:flex;align-items:baseline;justify-content:center;gap:4px;color:var(--c);white-space:nowrap}
+.cur b{font:700 clamp(26px,6.5vh,58px)/1 -apple-system,system-ui;font-variant-numeric:tabular-nums;letter-spacing:-1px}
+.cur small{font-size:12px;color:var(--sub)}
+.cur b.long{font-size:clamp(20px,4.6vh,40px)}
+.cur b.long+small{display:none}
+.sub{font-size:12px;color:var(--sub);text-align:center;min-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rname{border:1px solid var(--line);background:#1b1b1b;border-radius:6px;color:var(--c);font-size:13px;font-weight:600;padding:5px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rname::after{content:" ▾";color:var(--sub)}
+.wave{width:100%;height:clamp(22px,6vh,46px);stroke:var(--c);fill:none;stroke-width:1.6;stroke-linejoin:round;background:#0a0a0a;border-radius:4px}
+.sliders{flex:1;display:flex;justify-content:center;gap:4px;min-height:70px}
+.vs{position:relative;flex:1;max-width:70px;touch-action:none;cursor:ns-resize}
+.vs .trk{position:absolute;left:50%;top:16px;bottom:16px;width:8px;margin-left:-4px;background:#2a2a2a;border-radius:4px}
+.vs .fill{position:absolute;left:0;right:0;bottom:0;height:calc(var(--p,0)*100%);background:var(--c);opacity:.5;border-radius:4px}
+.vs .thumb{position:absolute;left:50%;bottom:calc(var(--p,0)*100%);width:32px;height:32px;margin:0 0 -16px -16px;border-radius:50%;background:var(--nibp);border:4px solid var(--c);box-shadow:0 2px 6px rgba(0,0,0,.6)}
+.vs .cap{position:absolute;top:-2px;left:0;right:0;text-align:center;font-size:10px;color:var(--sub);font-weight:700}
+.vs.dis{opacity:.25;pointer-events:none}
+.pmr{display:flex;gap:4px}
+.pmr button{flex:1;height:36px;border:0;border-radius:6px;background:var(--key);color:var(--text);font-size:22px;line-height:1;padding:0}
+.pmr button:disabled{opacity:.25}
+.pmr.two button{font-size:18px}
+
+/* Fenster (Rhythmus, Defi, Pacer, Szenarien, Protokoll, Sensoren, Kopplung) */
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:10;padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
+.sheet.open{display:flex}
+.card{background:#161616;border:1px solid #333;border-radius:14px;width:min(560px,100%);max-height:100%;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.8)}
+.card.wide{width:min(980px,100%)}
+.card header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #2c2c2c;font:700 17px -apple-system,system-ui}
+.x{border:0;background:var(--key);border-radius:50%;width:32px;height:32px;font-size:16px}
+.cb{overflow-y:auto;padding:10px 14px 14px;-webkit-overflow-scrolling:touch}
+.sh{font-size:12px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin:12px 2px 6px}
+.sh:first-child{margin-top:2px}
+.sf{font-size:12px;color:var(--sub);margin:6px 2px 0;line-height:1.35}
+.g{background:#0d0d0d;border:1px solid #262626;border-radius:10px;overflow:hidden}
+.r{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 12px;border-bottom:1px solid #222;min-height:44px}
+.r:last-child,.sl:last-child{border-bottom:0}
+.r.stack{flex-direction:column;align-items:stretch;gap:6px}
+.r.stack select{width:100%;padding:9px 10px}
+.sw{appearance:none;-webkit-appearance:none;width:51px;height:31px;border-radius:16px;background:#3a3a3c;position:relative;flex:none;margin:0;transition:background .2s}
+.sw:checked{background:var(--ecg)}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.4);transition:left .2s}
+.sw:checked::after{left:22px}.sw:disabled{opacity:.35}
+.sl{padding:9px 12px;border-bottom:1px solid #222}
+.sl .t{display:flex;justify-content:space-between}.sl b{font-variant-numeric:tabular-nums;color:var(--ecg)}
+.tr{display:flex;align-items:center;gap:10px;margin-top:6px}
+.pm{border:0;background:var(--key);color:var(--text);font-size:22px;line-height:1;width:36px;height:32px;border-radius:6px;padding:0;flex:none}
+input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
+.btn{border:0;background:transparent;color:var(--spo2);padding:0;font-weight:600}
 .btn.red{color:var(--red)}
-.sc{display:block;width:100%;text-align:left;border:0;background:transparent;font:inherit;color:var(--text);padding:11px 16px;border-bottom:.5px solid var(--line)}
-.sc:last-child{border-bottom:0}.sc small{display:block;color:var(--sub);font-size:13px;margin-top:2px}
+.sc{display:block;flex:1;text-align:left;border:0;background:transparent;color:var(--text);padding:0}
+.sc small{display:block;color:var(--sub);font-size:12px;margin-top:2px}
 .txt{flex:1;font:inherit;color:var(--text);background:transparent;border:0;outline:0;padding:0;min-width:0}
-.pill{width:100%;border:0;border-radius:10px;background:var(--blue);color:#fff;font:600 16px -apple-system,system-ui;padding:11px}
-.pm.del{font-size:20px}
-.dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:10px;background:var(--red)}
-.ev{padding:9px 16px;border-bottom:.5px solid var(--line);font-size:15px}.ev:last-child{border-bottom:0}.ev small{color:var(--sub);font-variant-numeric:tabular-nums;margin-right:8px}
-.bar{position:fixed;left:0;right:0;bottom:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:var(--bg);border-top:.5px solid var(--line);display:none}
-.bar button{width:100%;border:0;border-radius:12px;background:var(--blue);color:#fff;font:600 17px -apple-system,system-ui;padding:14px}
-.bar button:disabled{opacity:.4}
+.pill{width:100%;border:0;border-radius:8px;background:var(--ecg);color:#000;font:700 15px -apple-system,system-ui;padding:11px}
+.pm.del{font-size:16px;background:#3a1414}
+.ev{padding:8px 12px;border-bottom:1px solid #222;font-size:14px}.ev:last-child{border-bottom:0}.ev small{color:var(--sub);font-variant-numeric:tabular-nums;margin-right:8px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+
+/* Rhythmus-Auswahl */
+.rh{display:grid;grid-template-columns:150px 1fr;gap:10px}
+#cats{display:flex;flex-direction:column;gap:6px}
+#cats button{border:1px solid #2c2c2c;background:#1e1e1e;border-radius:8px;padding:10px;text-align:left;font-weight:600;font-size:14px}
+#cats button.on{background:var(--ecg);border-color:var(--ecg);color:#000}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;align-content:start}
+.tile{border:1px solid #2c2c2c;background:#0b0b0b;border-radius:8px;padding:6px;text-align:left;display:flex;flex-direction:column;gap:4px}
+.tile svg{width:100%;height:40px;stroke:var(--ecg);fill:none;stroke-width:1.4;stroke-linejoin:round}
+.tile span{font-size:12px;font-weight:600;line-height:1.2;min-height:29px}
+.tile small{font-size:11px;color:var(--sub)}
+.tile.on{border-color:var(--ecg);box-shadow:inset 0 0 0 1px var(--ecg);background:#0b2412}
+
+#rotate{display:none;position:fixed;inset:0;z-index:50;background:#000;color:var(--text);flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:30px;font-size:17px}
+#rotate svg{width:72px;height:72px;stroke:var(--ecg);fill:none;stroke-width:2}
+@media (orientation:portrait){#rotate{display:flex}}
+
+/* Handy quer: wenig Höhe */
+@media (max-height:520px){
+ :root{--rail:74px;--gap:5px}
+ #top{min-height:38px;padding:3px var(--gap);gap:8px}
+ .brand{font-size:15px}.brand span,.tsel>span{display:none}
+ .power{padding:4px 8px;font-size:13px}
+ select{font-size:13px;padding:4px 6px}
+ .rb{min-height:40px;font-size:11px;border-radius:8px;gap:2px}
+ .rb svg{width:20px;height:20px}
+ .temp .v{font-size:16px}.temp .pm2 button{height:24px;font-size:16px}
+ .col{padding:4px;gap:4px}.body{gap:4px}
+ .ch{padding:4px;font-size:13px}
+ .cur b{font-size:clamp(20px,9vh,40px)}
+ .cur b.long{font-size:clamp(16px,6vh,26px)}
+ .liveSw .sw{transform:scale(.8)}.liveSw{gap:0}
+ .wave,.sub.opt{display:none}
+ .rname{font-size:12px;padding:3px 5px}
+ .vs .thumb{width:26px;height:26px;margin:0 0 -13px -13px;border-width:3px}
+ .vs .trk{top:13px;bottom:13px}
+ .sliders{min-height:50px}
+ .pmr button{height:28px;font-size:18px}
+ .card header{padding:6px 12px}.cb{padding:6px 12px 10px}
+ .rh{grid-template-columns:120px 1fr}
+ #cats button{padding:7px 8px;font-size:13px}
+ .tiles{grid-template-columns:repeat(auto-fill,minmax(125px,1fr))}
+ .tile svg{height:30px}
+}
+@media (max-width:700px){.two-col{grid-template-columns:1fr}#codeInfo{display:none}}
 </style>
 </head>
 <body>
-<h1>Steuereinheit</h1>
 
-<div id="codeBox" style="display:none">
-  <div class="sh">Mit Monitor koppeln</div>
-  <div class="g"><div class="r"><input id="codeInput" placeholder="Kopplungscode" autocapitalize="characters" autocomplete="off" maxlength="8"
-    style="font:600 20px ui-monospace,monospace;letter-spacing:2px;border:0;background:transparent;color:var(--text);width:100%;text-transform:uppercase">
-    <button class="btn" id="codeBtn">Koppeln</button></div></div>
-  <div class="sf">Scanne am besten den QR-Code am Monitor (Menü → „iPhone als Steuerung koppeln“). Oder tippe den 8-stelligen Code ab.</div>
-</div>
-
-<div class="g">
-  <div class="r"><span><span class="dot" id="dot"></span><span id="conn">Verbinde …</span></span></div>
-  <div class="r"><span><b id="powerLabel">Monitor aus</b></span><input type="checkbox" class="sw" data-key="monitorOn"></div>
-  <div class="r"><span>Änderungen sofort senden (Live)</span><input type="checkbox" class="sw" id="live" checked></div>
-  <div class="r"><span>Übergang neuer Werte</span>
+<header id="top">
+  <div class="brand">FM 112<span>Steuerung</span></div>
+  <div class="conn"><i class="dot" id="dot"></i><span id="conn">Verbinde …</span></div>
+  <div id="codeInfo" style="display:none"></div>
+  <label class="tsel"><span>Übergang</span>
     <select id="transitionSeconds">
       <option value="0">Sofort</option><option value="10">10 s</option><option value="30">30 s</option>
       <option value="60">1 min</option><option value="120">2 min</option><option value="300">5 min</option>
-    </select></div>
+    </select></label>
+  <button class="power" data-tg="monitorOn"><i></i><span id="powerLabel">Monitor aus</span></button>
+</header>
+
+<main id="main">
+  <nav class="rail" id="leftRail"></nav>
+  <section id="cols"></section>
+  <nav class="rail" id="rightRail"></nav>
+</main>
+
+<!-- Fenster -->
+<div class="sheet" id="shCode"><div class="card">
+  <header>Mit Monitor koppeln</header>
+  <div class="cb">
+    <div class="g"><div class="r"><input id="codeInput" placeholder="Kopplungscode" autocapitalize="characters" autocomplete="off" maxlength="8"
+      style="font:600 20px ui-monospace,monospace;letter-spacing:2px;border:0;background:transparent;color:var(--text);width:100%;text-transform:uppercase;outline:0">
+      <button class="btn" id="codeBtn">Koppeln</button></div></div>
+    <div class="sf">Scanne am besten den QR-Code am Monitor (Menü → „iPhone als Steuerung koppeln“). Oder tippe den 8-stelligen Code ab.</div>
+  </div>
+</div></div>
+
+<div class="sheet" id="shSensors"><div class="card">
+  <header>Sensoren am Patienten<button class="x">✕</button></header>
+  <div class="cb"><div class="g" id="sensors"></div>
+  <div class="sf">Erst wenn ein Sensor hier freigegeben ist, zeigt der Monitor Kurve und Wert an. Schock und Pacer gehen nur mit Pads, die 6- und 12-Kanal-Ansicht nur mit dem passenden Kabel.</div></div>
+</div></div>
+
+<div class="sheet" id="shRhythm"><div class="card wide">
+  <header>EKG-Rhythmus<button class="x">✕</button></header>
+  <div class="cb">
+    <div class="rh"><div id="cats"></div><div class="tiles" id="tiles"></div></div>
+    <div class="two-col" style="margin-top:12px">
+      <div class="g">
+        <div class="r"><span>Arrhythmisch (unregelmäßig)</span><input type="checkbox" class="sw" data-key="arrhythmic"></div>
+        <div id="arrBox"></div>
+      </div>
+      <div class="g">
+        <div id="ecgToggles"></div>
+        <div id="vesBox"></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<div class="sheet" id="shDefi"><div class="card">
+  <header>Defibrillation<button class="x">✕</button></header>
+  <div class="cb">
+    <div class="g"><div class="r stack"><span>Rhythmus nach Schock</span><select id="shockConversion"></select></div><div id="convAfter"></div><div id="convRate"></div></div>
+    <div class="sf">Gilt für Defibrillation und Kardioversion. Der Monitor zählt bei jedem Schock herunter und wechselt beim letzten nötigen Schock in diesen Rhythmus (mit der eingestellten Frequenz).</div>
+  </div>
+</div></div>
+
+<div class="sheet" id="shPacer"><div class="card">
+  <header>Schrittmacher<button class="x">✕</button></header>
+  <div class="cb">
+    <div class="g" id="pacer"></div>
+    <div class="sf">Ab dieser Stromstärke folgt auf jeden Pacer-Impuls ein breiter Kammerkomplex. Ohne mechanische Capture bleibt der Patient trotzdem pulslos.</div>
+  </div>
+</div></div>
+
+<div class="sheet" id="shScn"><div class="card wide">
+  <header>Eigene Szenarien<button class="x">✕</button></header>
+  <div class="cb two-col">
+    <div><div class="sh">Gespeichert</div>
+      <div class="g" id="scenarios"><div class="ev"><small>Noch keine Szenarien gespeichert.</small></div></div></div>
+    <div><div class="sh">Aktuelle Einstellungen speichern</div>
+      <div class="g">
+        <div class="r"><input class="txt" id="scnName" placeholder="Name, z. B. Hinterwandinfarkt" maxlength="60" autocomplete="off"></div>
+        <div class="r"><input class="txt" id="scnNote" placeholder="Beschreibung (optional)" maxlength="200" autocomplete="off"></div>
+        <div class="r"><button class="pill" id="scnSave">Aktuelle Einstellungen als Szenario speichern</button></div>
+      </div>
+      <div class="sf">Gespeichert werden Rhythmus, Frequenz, Puls, Vitalwerte, Rhythmus nach Schock und Pacer-Schwelle. Die Szenarien liegen dauerhaft auf dem iPad und sind von jedem gekoppelten Handy aus sichtbar. Gleicher Name überschreibt das alte Szenario.</div>
+    </div>
+  </div>
+</div></div>
+
+<div class="sheet" id="shEvents"><div class="card">
+  <header>Protokoll vom Monitor<button class="x">✕</button></header>
+  <div class="cb"><div class="g" id="events"><div class="ev"><small>Noch keine Aktionen am Monitor.</small></div></div></div>
+</div></div>
+
+<div id="rotate">
+  <svg viewBox="0 0 64 64"><rect x="8" y="18" width="48" height="28" rx="5"/><path d="M50 8a22 22 0 0 1 8 14m0 0-5-3m5 3 2-5"/></svg>
+  <div><b>FM 112 Steuerung</b><br><span style="color:var(--sub)">Bitte das Gerät quer halten.</span></div>
 </div>
 
-<div class="sh">Sensoren am Patienten</div>
-<div class="g" id="sensors"></div>
-<div class="sf">Erst wenn ein Sensor hier freigegeben ist, zeigt der Monitor Kurve und Wert an. Schock und Pacer gehen nur mit Pads, die 6- und 12-Kanal-Ansicht nur mit dem passenden Kabel.</div>
-
-<div class="sh">EKG-Rhythmus</div>
-<div class="g">
-  <div class="r stack"><span>Rhythmus</span><select id="rhythm"></select></div>
-  <div id="hrBox"></div>
-  <div class="r"><span>Arrhythmisch (unregelmäßig)</span><input type="checkbox" class="sw" data-key="arrhythmic"></div>
-  <div id="arrBox"></div>
-  <div id="vesBox"></div>
-  <div id="ecgToggles"></div>
-</div>
-
-<div class="sh">Vitalwerte</div>
-<div class="g" id="vitals"></div>
-
-<div class="sh">Blutdruck</div>
-<div class="g" id="bp"></div>
-<div class="sf">Dieser Wert erscheint, wenn am Monitor eine NIBP-Messung abgeschlossen wird.</div>
-
-<div class="sh">Defibrillation</div>
-<div class="g"><div class="r stack"><span>Rhythmus nach Schock</span><select id="shockConversion"></select></div><div id="convAfter"></div><div id="convRate"></div></div>
-<div class="sf">Gilt für Defibrillation und Kardioversion. Der Monitor zählt bei jedem Schock herunter und wechselt beim letzten nötigen Schock in diesen Rhythmus (mit der eingestellten Frequenz).</div>
-
-<div class="sh">Schrittmacher</div>
-<div class="g" id="pacer"></div>
-<div class="sf">Ab dieser Stromstärke folgt auf jeden Pacer-Impuls ein breiter Kammerkomplex. Ohne mechanische Capture bleibt der Patient trotzdem pulslos.</div>
-
-<div class="sh">Eigene Szenarien</div>
-<div class="g" id="scenarios"><div class="ev"><small>Noch keine Szenarien gespeichert.</small></div></div>
-<div class="g" style="margin-top:10px">
- <div class="r"><input class="txt" id="scnName" placeholder="Name, z. B. Hinterwandinfarkt" maxlength="60" autocomplete="off"></div>
- <div class="r"><input class="txt" id="scnNote" placeholder="Beschreibung (optional)" maxlength="200" autocomplete="off"></div>
- <div class="r"><button class="pill" id="scnSave">Aktuelle Einstellungen als Szenario speichern</button></div>
-</div>
-<div class="sf">Gespeichert werden Rhythmus, Frequenz, Puls, Vitalwerte, Rhythmus nach Schock und Pacer-Schwelle. Die Szenarien liegen dauerhaft auf dem iPad und sind von jedem gekoppelten Handy aus sichtbar. Gleicher Name überschreibt das alte Szenario.</div>
-
-<div class="sh">Protokoll vom Monitor</div>
-<div class="g" id="events"><div class="ev"><small>Noch keine Aktionen am Monitor.</small></div></div>
-
-<div class="sf" id="codeInfo" style="display:none;margin-top:22px"></div>
-
-<div class="bar" id="sendBar"><button id="sendBtn">An Monitor senden</button></div>
 <script>if(location.protocol==="https:")document.write('<script src="mqtt.min.js"><\/script>')</script>
 
 <script>
@@ -119,28 +271,158 @@ const RHYTHMS=[
  ["avBlock3","AV-Block III°",35,true],["pacemaker","Schrittmacher-Rhythmus",70,true],["vt","Ventrikuläre Tachykardie",180,true],
  ["torsade","Torsade de Pointes",230,false],["vf","Kammerflimmern",0,false],["pea","PEA (pulslose elektrische Aktivität)",45,false],["asystole","Asystolie",0,false]];
 const R=Object.fromEntries(RHYTHMS.map(r=>[r[0],{name:r[1],rate:r[2],pulse:r[3],usesRate:r[0]!=="vf"&&r[0]!=="asystole"}]));
+const CATS=[["Sinus",["sinus","sinusVES"]],["Ischämie",["stemi","stemiAnterior","stemiLateral","stemiAnterolateral"]],
+ ["Tachykardie",["afib","aflutter","svt","vt"]],["Bradykardie & AV-Block",["avBlock1","avBlock2Wenckebach","avBlock2Mobitz","avBlock3","pacemaker"]],
+ ["Reanimation",["vf","torsade","pea","asystole"]]];
 
 let state=null, live=true, dirty=false, lastLocalChange=0, sendTimer=null, online=false;
 const $=id=>document.getElementById(id);
+const SPEC={}; // Grenzen und Schrittweite je Wert (für Regler und ⊖/⊕)
 
 function toggleRow(key,label){return `<div class="r"><span>${label}</span><input type="checkbox" class="sw" data-key="${key}"></div>`}
-function sliderRow(key,label,unit,min,max,step){return `<div class="sl"><div class="t"><span>${label}</span><b data-out="${key}" data-unit="${unit}" data-step="${step}"></b></div>
- <div class="tr"><button class="pm" data-dec="${key}">⊖</button><input type="range" data-key="${key}" min="${min}" max="${max}" step="${step}"><button class="pm" data-inc="${key}">⊕</button></div></div>`}
+function sliderRow(key,label,unit,min,max,step){SPEC[key]={min,max,step};return `<div class="sl"><div class="t"><span>${label}</span><b data-out="${key}" data-unit="${unit}" data-step="${step}"></b></div>
+ <div class="tr"><button class="pm" data-dec="${key}">−</button><input type="range" data-key="${key}" min="${min}" max="${max}" step="${step}"><button class="pm" data-inc="${key}">+</button></div></div>`}
+function vslider(key,min,max,step,cap){SPEC[key]={min,max,step};return `<div class="vs" data-vs="${key}">${cap?`<span class="cap">${cap}</span>`:""}<div class="trk"><div class="fill"></div><div class="thumb"></div></div></div>`}
+function pm(key){return `<button data-dec="${key}">−</button><button data-inc="${key}">+</button>`}
+
+// Symbole
+const IC={
+ cpr:'<path d="M8 13l4-4 4 4M12 9v12M5 5h14"/>',
+ art:'<path d="M2 12h3l2-5 3 10 2-8 2 6 2-3h6"/>',
+ pulse:'<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
+ sens:'<path d="M9 3v6M15 3v6M7 9h10v3a5 5 0 0 1-10 0zM12 17v4"/>',
+ ecg:'<path d="M2 12h5l2-3 2 9 3-15 2 9h6"/>',
+ defi:'<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+ pacer:'<path d="M3 15h4V5M7 15l2 4 2-10 2 6h8"/>',
+ scn:'<path d="M3 6h18M3 12h18M3 18h12"/>',
+ log:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'};
+const icon=n=>`<svg viewBox="0 0 24 24">${IC[n]}</svg>`;
+
+$("leftRail").innerHTML=
+  `<button class="rb" data-tg="cprArtifact" style="--c:var(--red)">${icon("cpr")}HLW</button>`
+ +`<button class="rb" data-tg="motionArtifact" style="--c:var(--yellow)">${icon("art")}Artefakte</button>`
+ +`<button class="rb" data-tg="hasPulse" style="--c:var(--ecg)">${icon("pulse")}Puls<br>tastbar</button>`
+ +`<div class="rb temp" id="tempBox"><button class="lbl" data-tg="tempAttached">TEMP °C</button><span class="v" data-out="temperature" data-unit="" data-step="0.1"></span><div class="pm2">${pm("temperature")}</div></div>`
+ +`<button class="rb" data-open="shSensors">${icon("sens")}Sensoren<span class="badge" id="sensCount"></span></button>`;
+SPEC.temperature={min:30,max:43,step:0.1};
+
+$("rightRail").innerHTML=
+  `<button class="rb" data-open="shRhythm">${icon("ecg")}Rhythmus</button>`
+ +`<button class="rb" data-open="shDefi">${icon("defi")}Defi</button>`
+ +`<button class="rb" data-open="shPacer">${icon("pacer")}Pacer</button>`
+ +`<button class="rb" data-open="shScn">${icon("scn")}Szenarien</button>`
+ +`<button class="rb" data-open="shEvents">${icon("log")}Protokoll<span class="badge" id="evCount"></span></button>`
+ +`<div class="rb liveSw"><input type="checkbox" class="sw" id="live" checked>Live senden</div>`
+ +`<button class="rb send" id="sendBtn">Senden</button>`;
+
+$("cols").innerHTML=
+  `<div class="col" id="colEcg" style="--c:var(--ecg)" data-sensor="ecgAttached">
+    <button class="ch" data-tg="ecgAttached">EKG <small>HF</small></button>
+    <div class="body">
+     <div class="cur"><b id="hrBig">--</b><small>/min</small></div>
+     <button class="rname" data-open="shRhythm" id="rhythmName">–</button>
+     <svg class="wave" id="wEcg" viewBox="0 0 120 36" preserveAspectRatio="none"><path/></svg>
+     <div class="sliders" id="hrOne">${vslider("heartRate",20,250,1)}</div>
+     <div class="sliders" id="hrTwo">${vslider("rateMin",20,250,1,"VON")}${vslider("rateMax",20,250,1,"BIS")}</div>
+     <div class="pmr" id="hrPm1">${pm("heartRate")}</div>
+     <div class="pmr two" id="hrPm2">${pm("rateMin")}${pm("rateMax")}</div>
+    </div></div>`
+ +`<div class="col" style="--c:var(--spo2)" data-sensor="spo2Attached">
+    <button class="ch" data-tg="spo2Attached">SpO₂ <small>%</small></button>
+    <div class="body">
+     <div class="cur"><b data-out="spo2" data-unit="" data-step="1"></b><small>%</small></div>
+     <div class="sub" id="pulseSub">Puls</div>
+     <svg class="wave" id="wPleth" viewBox="0 0 120 36" preserveAspectRatio="none"><path/></svg>
+     <div class="sliders">${vslider("spo2",50,100,1)}</div>
+     <div class="pmr">${pm("spo2")}</div>
+    </div></div>`
+ +`<div class="col" style="--c:var(--nibp)" data-sensor="nibpAttached">
+    <button class="ch" data-tg="nibpAttached">NIBP <small>mmHg</small></button>
+    <div class="body">
+     <div class="cur"><b id="bpBig">--</b></div>
+     <div class="sub" id="mapSub"></div>
+     <div class="sub opt">Erscheint nach der Messung</div>
+     <div class="sliders">${vslider("nibpSys",0,280,1,"SYS")}${vslider("nibpDia",0,200,1,"DIA")}</div>
+     <div class="pmr two">${pm("nibpSys")}${pm("nibpDia")}</div>
+    </div></div>`
+ +`<div class="col" style="--c:var(--co2)" data-sensor="co2Attached">
+    <button class="ch" data-tg="co2Attached">etCO₂ <small>mmHg</small></button>
+    <div class="body">
+     <div class="cur"><b data-out="etco2" data-unit="" data-step="1"></b><small>mmHg</small></div>
+     <div class="sub">Kapnografie</div>
+     <svg class="wave" id="wCo2" viewBox="0 0 120 36" preserveAspectRatio="none"><path/></svg>
+     <div class="sliders">${vslider("etco2",0,100,1)}</div>
+     <div class="pmr">${pm("etco2")}</div>
+    </div></div>`
+ +`<div class="col" style="--c:var(--co2)" data-sensor="co2Attached">
+    <button class="ch" data-tg="co2Attached">AF <small>/min</small></button>
+    <div class="body">
+     <div class="cur"><b data-out="respRate" data-unit="" data-step="1"></b><small>/min</small></div>
+     <div class="sub">über CO₂</div>
+     <svg class="wave" id="wResp" viewBox="0 0 120 36" preserveAspectRatio="none"><path/></svg>
+     <div class="sliders">${vslider("respRate",0,60,1)}</div>
+     <div class="pmr">${pm("respRate")}</div>
+    </div></div>`;
 
 $("sensors").innerHTML=toggleRow("ecgAttached","EKG 4-polig (6 Ableitungen)")+toggleRow("ecg12Attached","EKG 12-Kanal (zusätzlich V1–V6)")+toggleRow("padsAttached","Defi-Pads (Reanimation)")+toggleRow("spo2Attached","SpO₂-Sensor")+toggleRow("nibpAttached","NIBP-Manschette")
  +toggleRow("co2Attached","CO₂ (Kapnografie)")+toggleRow("tempAttached","Temperatursonde")
  +`<div class="r"><button class="btn" id="allOn">Alle anlegen</button><button class="btn red" id="allOff">Alle entfernen</button></div>`;
-$("hrBox").innerHTML=sliderRow("heartRate","Herzfrequenz","/min",20,250,1);
 $("vesBox").innerHTML=sliderRow("vesPerMinute","VES pro Minute (zufällig verteilt)","/min",1,20,1);
 $("arrBox").innerHTML=sliderRow("rateMin","Frequenz von","/min",20,250,1)+sliderRow("rateMax","Frequenz bis","/min",20,250,1);
 $("convAfter").innerHTML=sliderRow("shockConversionAfter","Schocks bis zum Wechsel","",1,10,1);
 $("convRate").innerHTML=sliderRow("shockConversionRate","Frequenz nach Schock","/min",20,250,1);
 $("ecgToggles").innerHTML=toggleRow("hasPulse","Puls tastbar (Auswurf)")+toggleRow("cprArtifact","HLW-Artefakte (Thoraxkompressionen)")+toggleRow("motionArtifact","Bewegungsartefakte");
-$("vitals").innerHTML=sliderRow("spo2","SpO₂","%",50,100,1)+sliderRow("respRate","Atemfrequenz","/min",0,60,1)+sliderRow("etco2","etCO₂","mmHg",0,100,1)+sliderRow("temperature","Temperatur","°C",30,43,0.1);
-$("bp").innerHTML=sliderRow("nibpSys","Systolisch","mmHg",0,280,1)+sliderRow("nibpDia","Diastolisch","mmHg",0,200,1);
 $("pacer").innerHTML=sliderRow("pacerThreshold","Reizschwelle","mA",0,200,5)+toggleRow("pacerMechanicalCapture","Mechanische Capture (Puls bei Stimulation)");
-$("rhythm").innerHTML=RHYTHMS.map(r=>`<option value="${r[0]}">${r[1]}</option>`).join("");
 $("shockConversion").innerHTML=`<option value="">Unverändert</option>`+RHYTHMS.map(r=>`<option value="${r[0]}">${r[1]}</option>`).join("");
+
+// ---------- Kurven-Vorschau (nur zur Orientierung, gezeichnet aus einfachen Formen) ----------
+const gs=(t,c,w,a)=>{const d=(t-c)/w;return a*Math.exp(-d*d)};
+const P=t=>gs(t,0,.022,.13);
+const NQ=(t,st)=>gs(t,-.02,.009,-.12)+gs(t,0,.011,1)+gs(t,.024,.01,-.28)+gs(t,.24,.05,.26)+(st?gs(t,.13,.07,st):0);
+const WQ=t=>gs(t,0,.03,.9)+gs(t,.07,.03,-.45)+gs(t,.3,.07,-.28);
+const SP=t=>gs(t,0,.004,1.1);
+function every(rr,from,to=3.4){const a=[];for(let x=from;x<to;x+=rr)a.push(x);return a}
+function ecgModel(id){
+  const ev=[];let cont=null;const add=(ts,f)=>ts.forEach(t=>ev.push([t,f]));
+  switch(id){
+   case "sinus":add(every(.8,.3),t=>NQ(t));add(every(.8,.14),P);break;
+   case "sinusVES":every(.8,.3).forEach((t,i)=>{if(i===2)ev.push([t,WQ]);else{ev.push([t,t=>NQ(t)]);ev.push([t-.16,P])}});break;
+   case "stemi":case "stemiAnterior":case "stemiLateral":case "stemiAnterolateral":add(every(.8,.3),t=>NQ(t,.3));add(every(.8,.14),P);break;
+   case "afib":add([.25,.8,1.22,1.9,2.33,2.95],t=>NQ(t));cont=t=>.045*Math.sin(2*Math.PI*7*t)+.03*Math.sin(2*Math.PI*11.3*t+1);break;
+   case "aflutter":add(every(.4,.3),t=>NQ(t));cont=t=>.08-.16*((t/.2)%1);break;
+   case "svt":add(every(.32,.2),t=>NQ(t)*.9);break;
+   case "avBlock1":add(every(.85,.4),t=>NQ(t));add(every(.85,.1),P);break;
+   case "avBlock2Wenckebach":{let k=0;for(let p=.05;p<3.4;p+=.6,k++){ev.push([p,P]);const pr=[.16,.26,.36,0][k%4];if(pr)ev.push([p+pr,t=>NQ(t)])}}break;
+   case "avBlock2Mobitz":{let k=0;for(let p=.1;p<3.4;p+=.6,k++){ev.push([p,P]);if(k%2===0)ev.push([p+.16,t=>NQ(t)])}}break;
+   case "avBlock3":add(every(.62,.05),P);add(every(1.5,.55),WQ);break;
+   case "pacemaker":add(every(.85,.3),WQ);add(every(.85,.27),SP);break;
+   case "vt":cont=t=>.75*Math.sin(2*Math.PI*t/.34)+.18*Math.sin(4*Math.PI*t/.34);break;
+   case "torsade":cont=t=>Math.sin(2*Math.PI*t/.25)*(.2+.8*Math.abs(Math.sin(Math.PI*t/1.6)));break;
+   case "vf":cont=t=>.35*Math.sin(2*Math.PI*5.1*t)+.2*Math.sin(2*Math.PI*7.9*t+1)+.15*Math.sin(2*Math.PI*3.3*t+2);break;
+   case "pea":add(every(1.33,.5),t=>WQ(t)*.6);add(every(1.33,.32),P);break;
+   default:cont=t=>.02*Math.sin(2*Math.PI*.4*t);
+  }
+  return t=>{let y=cont?cont(t):0;for(const [c,f] of ev)if(Math.abs(t-c)<.6)y+=f(t-c);return y};
+}
+function pathOf(f,W,H,T,lo,hi){let d="";const N=W*5;for(let i=0;i<=N;i++){const t=i/N*T,y=f(t);d+=(i?"L":"M")+(i/N*W).toFixed(1)+" "+(H-2-(y-lo)/(hi-lo)*(H-4)).toFixed(1)}return d}
+const ecgPath=(id,W,H)=>pathOf(ecgModel(id),W,H,3,-.6,1.25);
+const plethPath=on=>pathOf(t=>{if(!on)return 0;let y=0;for(let c=.1;c<3.4;c+=.8)y+=gs(t,c+.12,.09,1)+gs(t,c+.34,.06,.28);return y},120,36,3,-.05,1.1);
+const co2Path=on=>pathOf(t=>{if(!on)return 0;const x=t%2;return x<.4?0:x<.55?(x-.4)/.15*.9:x<1.35?.9+(x-.55)*.12:x<1.45?(1.45-x)/.1*1.0:0},120,36,4,-.05,1.05);
+const respPath=on=>pathOf(t=>on?Math.sin(2*Math.PI*t/2):0,120,36,4,-1.1,1.1);
+
+let catIndex=0, waveKey="";
+function renderCats(){
+  $("cats").innerHTML=CATS.map((c,i)=>`<button data-cat="${i}" class="${i===catIndex?"on":""}">${c[0]}</button>`).join("");
+  $("tiles").innerHTML=CATS[catIndex][1].map(id=>`<button class="tile${state&&state.rhythm===id?" on":""}" data-rhythm="${id}"><svg viewBox="0 0 150 40" preserveAspectRatio="none"><path d="${ecgPath(id,150,40)}"/></svg><span>${R[id].name}</span><small>${R[id].usesRate?"HF "+R[id].rate+"/min":"keine Frequenz"} · ${R[id].pulse?"mit Puls":"pulslos"}</small></button>`).join("");
+}
+function renderWaves(){
+  const pulse=state.hasPulse&&R[state.rhythm].pulse, k=[state.rhythm,pulse,state.etco2>0,state.respRate>0].join();
+  if(k===waveKey)return;waveKey=k;
+  $("wEcg").firstChild.setAttribute("d",ecgPath(state.rhythm,120,36));
+  $("wPleth").firstChild.setAttribute("d",plethPath(pulse));
+  $("wCo2").firstChild.setAttribute("d",co2Path(state.etco2>0&&state.respRate>0));
+  $("wResp").firstChild.setAttribute("d",respPath(state.respRate>0));
+}
 
 function setValue(key,v){
   if(key==="nibpSys"){state.nibpSys=v;if(state.nibpDia>=v)state.nibpDia=Math.max(0,v-10)}
@@ -176,48 +458,89 @@ async function sendScenario(msg){
 }
 function renderScenarios(list){
   const j=JSON.stringify(list||[]);if(j===scenarioJSON)return;scenarioJSON=j;scenarios=list||[];
-  $("scenarios").innerHTML=scenarios.length?scenarios.map(c=>`<div class="r"><button class="sc" style="flex:1;border:0;padding:0" data-load="${esc(c.id)}">${esc(c.name)}<small>${esc(c.note||((R[c.rhythm]||{name:c.rhythm}).name+", HF "+Math.round(c.heartRate)))}</small></button><button class="pm del" data-del="${esc(c.id)}" aria-label="Löschen">🗑</button></div>`).join("")
+  $("scenarios").innerHTML=scenarios.length?scenarios.map(c=>`<div class="r"><button class="sc" data-load="${esc(c.id)}">${esc(c.name)}<small>${esc(c.note||((R[c.rhythm]||{name:c.rhythm}).name+", HF "+Math.round(c.heartRate)))}</small></button><button class="pm del" data-del="${esc(c.id)}" aria-label="Löschen">🗑</button></div>`).join("")
     :`<div class="ev"><small>Noch keine Szenarien gespeichert.</small></div>`;
 }
-function fmt(v,step){return step<1?Number(v).toFixed(1):String(Math.round(v))}
+function fmt(v,step){return v===null||v===undefined?"--":step<1?Number(v).toFixed(1):String(Math.round(v))}
 
 function render(){
   if(!state)return;
+  const r=R[state.rhythm]||R.sinus;
   document.querySelectorAll("input.sw[data-key]").forEach(el=>{el.checked=!!state[el.dataset.key]});
+  document.querySelectorAll("[data-tg]").forEach(el=>el.classList.toggle("on",!!state[el.dataset.tg]));
   document.querySelectorAll("input[type=range][data-key]").forEach(el=>{if(document.activeElement!==el)el.value=state[el.dataset.key]});
-  document.querySelectorAll("[data-out]").forEach(el=>{el.textContent=fmt(state[el.dataset.out],+el.dataset.step)+" "+el.dataset.unit});
-  $("rhythm").value=state.rhythm;
+  document.querySelectorAll("[data-out]").forEach(el=>{el.textContent=fmt(state[el.dataset.out],+el.dataset.step)+(el.dataset.unit?" "+el.dataset.unit:"")});
+  document.querySelectorAll(".vs").forEach(el=>{const s=SPEC[el.dataset.vs];el.style.setProperty("--p",Math.max(0,Math.min(1,(state[el.dataset.vs]-s.min)/(s.max-s.min))))});
+  document.querySelectorAll(".col[data-sensor]").forEach(el=>el.classList.toggle("off",!state[el.dataset.sensor]));
+  $("tempBox").classList.toggle("off",!state.tempAttached);
+  // EKG-Spalte: ein Regler (Frequenz) oder zwei (von/bis) bei arrhythmisch
+  const arr=state.arrhythmic&&r.usesRate;
+  $("hrOne").style.display=$("hrPm1").style.display=arr?"none":"";
+  $("hrTwo").style.display=$("hrPm2").style.display=arr?"":"none";
+  $("hrOne").firstChild.classList.toggle("dis",!r.usesRate);
+  $("hrPm1").querySelectorAll("button").forEach(b=>b.disabled=!r.usesRate);
+  $("hrBig").classList.toggle("long",arr);
+  $("hrBig").textContent=!r.usesRate?"---":arr?Math.round(state.rateMin)+"–"+Math.round(state.rateMax):Math.round(state.heartRate);
+  $("rhythmName").textContent=r.name;
+  const pulse=state.hasPulse&&r.pulse;
+  $("pulseSub").textContent=pulse?"Puls "+(arr?Math.round(state.rateMin)+"–"+Math.round(state.rateMax):Math.round(state.heartRate))+" /min":"kein Puls";
+  $("bpBig").textContent=Math.round(state.nibpSys)+"/"+Math.round(state.nibpDia);
+  $("mapSub").textContent="MAD "+Math.round(state.nibpDia+(state.nibpSys-state.nibpDia)/3);
+  const n=["ecgAttached","ecg12Attached","padsAttached","spo2Attached","nibpAttached","co2Attached","tempAttached"].filter(k=>state[k]).length;
+  $("sensCount").textContent=n+"/7";
+  document.querySelectorAll(".tile").forEach(el=>el.classList.toggle("on",el.dataset.rhythm===state.rhythm));
+  renderWaves();
   $("shockConversion").value=state.shockConversion||"";
   $("transitionSeconds").value=String(state.transitionSeconds||0);
   $("vesBox").style.display=state.rhythm==="sinusVES"?"":"none";
   $("arrBox").style.display=state.arrhythmic?"":"none";
-  $("hrBox").style.display=state.arrhythmic&&R[state.rhythm].usesRate?"none":"";
   $("convAfter").style.display=state.shockConversion?"":"none";
   $("convRate").style.display=state.shockConversion&&R[state.shockConversion].usesRate?"":"none";
-  $("powerLabel").textContent=state.monitorOn?"Monitor eingeschaltet":"Monitor ausgeschaltet";
-  document.querySelector('input[data-key="hasPulse"]').disabled=!R[state.rhythm].pulse;
+  $("powerLabel").textContent=state.monitorOn?"Monitor an":"Monitor aus";
+  document.querySelectorAll('input[data-key="hasPulse"],[data-tg="hasPulse"]').forEach(el=>el.disabled=!r.pulse);
 }
-function renderBar(){$("sendBar").style.display=live?"none":"block";$("sendBtn").disabled=!dirty;$("sendBtn").textContent=dirty?"An Monitor senden":"Alles gesendet"}
-function setOnline(ok,name){online=ok;$("dot").style.background=ok?"var(--green)":"var(--red)";$("conn").textContent=ok?"Verbunden mit "+name:"Keine Verbindung zum Monitor"}
+function renderBar(){$("sendBtn").style.display=live?"none":"";$("sendBtn").disabled=!dirty;$("sendBtn").textContent=dirty?"Senden":"Gesendet ✓"}
+function setOnline(ok,name){online=ok;$("dot").style.background=ok?"var(--ecg)":"var(--red)";$("dot").style.color=ok?"var(--ecg)":"var(--red)";$("conn").textContent=ok?"Verbunden mit "+name:"Keine Verbindung zum Monitor"}
+
+function openSheet(id){if(id==="shRhythm"&&state){const i=CATS.findIndex(c=>c[1].includes(state.rhythm));catIndex=i<0?0:i;renderCats()}$(id).classList.add("open")}
+function closeSheets(){document.querySelectorAll(".sheet.open").forEach(s=>{if(s.id!=="shCode")s.classList.remove("open")})}
 
 document.addEventListener("change",e=>{
   const el=e.target;if(!state&&el.id!=="live")return;
   if(el.matches("input.sw[data-key]"))setValue(el.dataset.key,el.checked);
-  else if(el.id==="rhythm"){const r=R[el.value];state.rhythm=el.value;if(r.usesRate)state.heartRate=r.rate;state.hasPulse=r.pulse;changed()}
   else if(el.id==="shockConversion"){state.shockConversion=el.value||null;if(state.shockConversion&&R[state.shockConversion].usesRate)state.shockConversionRate=R[state.shockConversion].rate;changed()}
   else if(el.id==="transitionSeconds"){state.transitionSeconds=+el.value;changed()}
   else if(el.id==="live"){live=el.checked;if(live&&dirty)send();renderBar()}
 });
 document.addEventListener("input",e=>{const el=e.target;if(state&&el.matches("input[type=range][data-key]"))setValue(el.dataset.key,+el.value)});
+
+// Senkrechte Regler: antippen oder ziehen
+let drag=null;
+function vsMove(e){
+  const k=drag.dataset.vs,s=SPEC[k],t=drag.querySelector(".trk").getBoundingClientRect();
+  const f=Math.max(0,Math.min(1,1-(e.clientY-t.top)/t.height));
+  const v=+(Math.round((s.min+f*(s.max-s.min))/s.step)*s.step).toFixed(2);
+  if(v!==state[k])setValue(k,v);
+}
+document.addEventListener("pointerdown",e=>{const vs=e.target.closest(".vs");if(!vs||!state||vs.classList.contains("dis"))return;
+  drag=vs;try{vs.setPointerCapture(e.pointerId)}catch(_){}e.preventDefault();vsMove(e)});
+document.addEventListener("pointermove",e=>{if(drag)vsMove(e)});
+["pointerup","pointercancel"].forEach(n=>document.addEventListener(n,()=>{drag=null}));
+
 document.addEventListener("click",e=>{
-  const b=e.target.closest("button");if(!b||!state)return;
-  const range=k=>document.querySelector(`input[type=range][data-key="${k}"]`);
-  if(b.dataset.inc||b.dataset.dec){const k=b.dataset.inc||b.dataset.dec,el=range(k),st=+el.step,d=b.dataset.inc?st:-st;
-    setValue(k,Math.min(+el.max,Math.max(+el.min,Math.round((state[k]+d)/st)*st)))}
+  if(e.target.classList.contains("sheet")||e.target.closest(".x")){closeSheets();return}
+  const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.open){openSheet(b.dataset.open);return}
+  if(b.dataset.cat){catIndex=+b.dataset.cat;renderCats();return}
+  if(!state)return;
+  if(b.dataset.rhythm){const id=b.dataset.rhythm,r=R[id];state.rhythm=id;if(r.usesRate)state.heartRate=r.rate;state.hasPulse=r.pulse;changed()}
+  else if(b.dataset.tg){if(!b.disabled)setValue(b.dataset.tg,!state[b.dataset.tg])}
+  else if(b.dataset.inc||b.dataset.dec){const k=b.dataset.inc||b.dataset.dec,s=SPEC[k],d=b.dataset.inc?s.step:-s.step;
+    setValue(k,Math.min(s.max,Math.max(s.min,+(Math.round((state[k]+d)/s.step)*s.step).toFixed(2))))}
   else if(b.id==="allOn"||b.id==="allOff"){const on=b.id==="allOn";["ecgAttached","spo2Attached","nibpAttached","co2Attached","tempAttached"].forEach(k=>state[k]=on);if(!on){state.ecg12Attached=false;state.padsAttached=false}changed()}
   else if(b.dataset.load){const c=scenarios.find(x=>x.id===b.dataset.load);if(!c)return;
     SCN_KEYS.forEach(k=>state[k]=c[k]===undefined?null:c[k]);state.hasPulse=c.hasPulse&&R[c.rhythm].pulse;state.shockConversionAfter=c.shockConversionAfter||1;state.arrhythmic=!!c.arrhythmic;state.rateMin=c.rateMin||60;state.rateMax=c.rateMax||100;state.vesPerMinute=c.vesPerMinute||6;state.cprArtifact=false;state.motionArtifact=false;
-    changed();if(!live)send();window.scrollTo({top:0,behavior:"smooth"})}
+    changed();if(!live)send();closeSheets()}
   else if(b.dataset.del){const c=scenarios.find(x=>x.id===b.dataset.del);if(c&&confirm(`Szenario „${c.name}“ löschen?`))sendScenario({deleteScenario:c.id})}
   else if(b.id==="scnSave"){const name=$("scnName").value.trim();if(!name){$("scnName").focus();return}
     const c={id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),name,note:$("scnNote").value.trim()};SCN_KEYS.forEach(k=>c[k]=state[k]);
@@ -237,10 +560,11 @@ function handleStatus(j){
   const monitorChanged=lastRevision!==null&&j.revision!==undefined&&j.revision!==lastRevision;
   if(j.revision!==undefined)lastRevision=j.revision;
   renderScenarios(j.scenarios);
-  if(!state||powerChanged||monitorChanged||(live&&!dirty&&Date.now()-lastLocalChange>3000)){state=j.state;if(state.shockConversion===undefined)state.shockConversion=null;dirty=false;renderBar();render()}
+  if(!state||powerChanged||monitorChanged||(live&&!dirty&&!drag&&Date.now()-lastLocalChange>3000)){state=j.state;if(state.shockConversion===undefined)state.shockConversion=null;dirty=false;renderBar();render()}
   const ev=$("events");
   ev.innerHTML=j.events.length?j.events.map(e=>`<div class="ev"><small>${new Date(e.date).toLocaleTimeString("de-DE")}</small>${esc(e.text)}</div>`).join("")
     :`<div class="ev"><small>Noch keine Aktionen am Monitor.</small></div>`;
+  $("evCount").textContent=j.events.length||"";
 }
 async function poll(){
   try{
@@ -254,9 +578,9 @@ function stored(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function startRelay(c){
   code=c.toUpperCase().replace(/[^A-Z0-9]/g,"");
   store("c3code",code);
-  $("codeBox").style.display="none";
+  $("shCode").classList.remove("open");
   $("codeInfo").style.display="block";
-  $("codeInfo").innerHTML=`Kopplungscode ${code} · <button class="btn" id="codeReset" style="font-size:13px">Anderen Monitor koppeln</button>`;
+  $("codeInfo").innerHTML=`Code ${code} · <button class="lnk" id="codeReset">Anderen Monitor koppeln</button>`;
   $("conn").textContent="Verbinde …";
   brokerIndex=0;connectBroker();
 }
@@ -282,12 +606,15 @@ function checkOnline(){
   if(fresh)setOnline(true,monitorName);
   else{setOnline(false);$("conn").textContent=state?"Monitor offline – App am iPad geöffnet?":"Warte auf Monitor "+code+" …"}
 }
-function showCodeEntry(){$("codeBox").style.display="block";$("codeInfo").style.display="none";$("conn").textContent="Noch nicht gekoppelt";$("codeInput").focus()}
+function showCodeEntry(){$("shCode").classList.add("open");$("codeInfo").style.display="none";$("conn").textContent="Noch nicht gekoppelt";$("codeInput").focus()}
 document.addEventListener("click",e=>{
   if(e.target.id==="codeBtn"){const v=$("codeInput").value.trim();if(v.length>=6){history.replaceState(null,"","?code="+encodeURIComponent(v.toUpperCase()));startRelay(v)}}
   else if(e.target.id==="codeReset"){store("c3code",null);if(client)client.end(true);client=null;code=null;showCodeEntry()}
 });
 
+// Nur Querformat: wo der Browser es erlaubt, festhalten (sonst zeigt die Seite einen Hinweis)
+try{screen.orientation&&screen.orientation.lock&&screen.orientation.lock("landscape").catch(()=>{})}catch(e){}
+renderCats();
 renderBar();
 if(RELAY){
   const c=new URLSearchParams(location.search).get("code")||stored("c3code");
