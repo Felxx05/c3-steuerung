@@ -95,7 +95,9 @@ select{font:600 14px -apple-system,system-ui;color:var(--text);background:var(--
 .card{background:#161616;border:1px solid #333;border-radius:14px;width:min(560px,100%);max-height:100%;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.8)}
 .card.wide{width:min(980px,100%)}
 .card header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #2c2c2c;font:700 17px -apple-system,system-ui}
-.x{border:0;background:var(--key);border-radius:50%;width:32px;height:32px;font-size:16px}
+.x{flex:none;border:0;padding:0;margin:0 -4px 0 12px;background:#2a2a2a;color:#c8c8c8;border-radius:50%;width:30px;height:30px;display:grid;place-items:center;-webkit-appearance:none;appearance:none}
+.x svg{width:12px;height:12px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;fill:none;display:block}
+.x:active{background:#3a3a3a}
 .cb{overflow-y:auto;padding:10px 14px 14px;-webkit-overflow-scrolling:touch}
 .sh{font-size:12px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin:12px 2px 6px}
 .sh:first-child{margin-top:2px}
@@ -203,19 +205,19 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
 </div></div>
 
 <div class="sheet" id="shConnect"><div class="card">
-  <header>Mit Monitor verbinden<button class="x">✕</button></header>
+  <header>Mit Monitor verbinden<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
   <div class="cb"><div class="g" id="peers"></div>
   <div class="sf">Beide Geräte brauchen eingeschaltetes WLAN oder Bluetooth und müssen den Zugriff auf das lokale Netzwerk erlauben. Den Namen des Monitors zeigt die Monitor-App oben links.</div></div>
 </div></div>
 
 <div class="sheet" id="shSensors"><div class="card">
-  <header>Sensoren am Patienten<button class="x">✕</button></header>
+  <header>Sensoren am Patienten<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
   <div class="cb"><div class="g" id="sensors"></div>
   <div class="sf">Erst wenn ein Sensor hier freigegeben ist, zeigt der Monitor Kurve und Wert an. Schock und Pacer gehen nur mit Pads, die 6- und 12-Kanal-Ansicht nur mit dem passenden Kabel.</div></div>
 </div></div>
 
 <div class="sheet" id="shRhythm"><div class="card wide">
-  <header>EKG-Rhythmus<button class="x">✕</button></header>
+  <header>EKG-Rhythmus<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
   <div class="cb">
     <div class="rh"><div id="cats"></div><div class="tiles" id="tiles"></div></div>
     <div class="two-col" style="margin-top:12px">
@@ -232,7 +234,7 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
 </div></div>
 
 <div class="sheet" id="shDefi"><div class="card">
-  <header>Defibrillation<button class="x">✕</button></header>
+  <header>Defibrillation<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
   <div class="cb">
     <div class="g"><div class="r stack"><span>Rhythmus nach Schock</span><select id="shockConversion"></select></div><div id="convAfter"></div><div id="convRate"></div></div>
     <div class="sf">Gilt für Defibrillation und Kardioversion. Der Monitor zählt bei jedem Schock herunter und wechselt beim letzten nötigen Schock in diesen Rhythmus (mit der eingestellten Frequenz).</div>
@@ -240,7 +242,7 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
 </div></div>
 
 <div class="sheet" id="shPacer"><div class="card">
-  <header>Schrittmacher<button class="x">✕</button></header>
+  <header>Schrittmacher<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
   <div class="cb">
     <div class="g" id="pacer"></div>
     <div class="sf" id="pacerHint" style="color:#ff9f0a">Der Pacer geht nur mit angeschlossenen Pads (linke Leiste „Pads“).</div>
@@ -249,7 +251,7 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
 </div></div>
 
 <div class="sheet" id="shScn"><div class="card wide">
-  <header>Eigene Szenarien<button class="x">✕</button></header>
+  <header>Eigene Szenarien<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
   <div class="cb two-col">
     <div><div class="sh">Gespeichert</div>
       <div class="g" id="scenarios"><div class="ev"><small>Noch keine Szenarien gespeichert.</small></div></div></div>
@@ -265,7 +267,7 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
 </div></div>
 
 <div class="sheet" id="shEvents"><div class="card">
-  <header>Protokoll vom Monitor<button class="x">✕</button></header>
+  <header>Protokoll vom Monitor<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
   <div class="cb"><div class="g" id="events"><div class="ev"><small>Noch keine Aktionen am Monitor.</small></div></div></div>
 </div></div>
 
@@ -291,7 +293,7 @@ const CATS=[["Sinus & VES",["sinus","sinusBrady","sinusTachy","sinusVES","vesBig
  ["Ischämie",["stemi","stemiAnterior","stemiLateral","stemiAnterolateral","stemiRight","stemiPosterior","nstemi"]],["Leitungsstörung",["rbbb","lbbb","wpw"]],
  ["Tachykardie",["afib","afibLBBB","aflutter","svt","vt"]],["Bradykardie & AV-Block",["avBlock1","avBlock2Wenckebach","avBlock2Mobitz","avBlock3","pacemaker","aivr","ventricularEscape"]],
  ["Reanimation",["vf","pvt","polyVT","torsade","pea","asystole"]],["Sonstige",["hyperkalemia","pulmonaryEmbolism","pericarditis"]]];
-const PLACES=[["standard","V4–V6"],["right","V4R–V6R"],["posterior","V7–V9"]];
+const PLACES=[["standard","V4–V6"],["right","V3R–V6R"],["posterior","V7–V9"]];
 
 let state=null, live=true, dirty=false, lastLocalChange=0, sendTimer=null, online=false;
 const $=id=>document.getElementById(id);
@@ -386,7 +388,7 @@ $("cols").innerHTML=
     </div></div>`;
 
 $("sensors").innerHTML=toggleRow("ecgAttached","EKG 4-polig (6 Ableitungen)")+toggleRow("ecg12Attached","EKG 12-Kanal (zusätzlich V1–V6)")+toggleRow("padsAttached","Defi-Pads (Reanimation)")+toggleRow("spo2Attached","SpO₂-Sensor")+toggleRow("nibpAttached","NIBP-Manschette")
- +`<div class="r"><span>Brustwand V4–V6 kleben</span></div><div class="r seg">${PLACES.map(p=>`<button class="btn pl" data-place="${p[0]}">${p[0]==="standard"?"Standard":p[0]==="right"?"Rechts (V4R–V6R)":"Hinten (V7–V9)"}</button>`).join("")}</div>`
+ +`<div class="r"><span>Brustwandelektroden kleben</span></div><div class="r seg">${PLACES.map(p=>`<button class="btn pl" data-place="${p[0]}">${p[0]==="standard"?"Standard":p[0]==="right"?"Rechts (V3R–V6R)":"Hinten (V7–V9)"}</button>`).join("")}</div>`
  +toggleRow("co2Attached","CO₂ (Kapnografie)")+toggleRow("tempAttached","Temperatursonde")
  +`<div class="r"><button class="btn" id="allOn">Alle anlegen</button><button class="btn red" id="allOff">Alle entfernen</button></div>`;
 $("vesBox").innerHTML=sliderRow("vesPerMinute","VES pro Minute (zufällig verteilt)","/min",1,20,1);
