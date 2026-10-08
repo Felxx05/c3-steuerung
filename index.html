@@ -63,6 +63,9 @@ select{font:600 14px -apple-system,system-ui;color:var(--text);background:var(--
 .ch small{font-weight:600;font-size:11px;align-self:center}
 .col.off .ch,.ch.tgl:not(.on){background:#262626;color:#777}
 .chs{display:flex;gap:4px}.chs .ch{flex:1;min-width:0;white-space:nowrap}
+.place .ch{font-size:11px;font-weight:700;letter-spacing:0;padding:4px 2px}
+.ch.pl:not(.on){background:#262626;color:#777}.place.dim{opacity:.45}
+.seg{gap:6px}.seg .btn{flex:1;min-width:0;padding:8px 4px;border-radius:8px;background:#262626;color:var(--fg,#eee);text-align:center}.seg .btn.pl.on{background:var(--ecg);color:#000}
 .col.off .body{opacity:.4}
 .body{display:flex;flex-direction:column;gap:6px;flex:1;min-height:0;transition:opacity .2s}
 .cur{display:flex;align-items:baseline;justify-content:center;gap:4px;color:var(--c);white-space:nowrap}
@@ -275,15 +278,20 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
 
 <script>
 const RHYTHMS=[
- ["sinus","Sinusrhythmus",75,true],["sinusVES","Sinusrhythmus mit VES",80,true],["stemi","STEMI Hinterwand (II, III, aVF)",60,true],["stemiAnterior","STEMI Vorderwand (V1–V4)",95,true],["stemiLateral","STEMI Seitenwand (I, aVL, V5, V6)",85,true],["stemiAnterolateral","STEMI großer Vorderwandinfarkt (V1–V6, I, aVL)",105,true],
- ["rbbb","Rechtsschenkelblock (RSB)",75,true],["lbbb","Linksschenkelblock (LSB)",70,true],["afib","Vorhofflimmern",110,true],["aflutter","Vorhofflattern",150,true],["svt","Supraventrikuläre Tachykardie",190,true],
+ ["sinus","Sinusrhythmus",75,true],["sinusBrady","Sinusbradykardie",45,true],["sinusTachy","Sinustachykardie",125,true],["sinusVES","Sinusrhythmus mit VES",80,true],
+ ["vesBigeminy","Sinusrhythmus mit VES-Bigeminus",75,true],["vesCouplets","Sinusrhythmus mit VES-Couplets",80,true],["vesRuns","Sinusrhythmus mit VT-Salven (nsVT)",85,true],["stemi","STEMI Hinterwand (II, III, aVF)",60,true],["stemiAnterior","STEMI Vorderwand (V1–V4)",95,true],["stemiLateral","STEMI Seitenwand (I, aVL, V5, V6)",85,true],["stemiAnterolateral","STEMI großer Vorderwandinfarkt (V1–V6, I, aVL)",105,true],
+ ["stemiRight","STEMI Rechtsherz (II, III, aVF, V1, V4R)",55,true],["stemiPosterior","STEMI posterior (V7–V9, Senkung V1–V3)",70,true],["nstemi","NSTEMI / Ischämie (ST-Senkung)",95,true],
+ ["rbbb","Rechtsschenkelblock (RSB)",75,true],["lbbb","Linksschenkelblock (LSB)",70,true],["wpw","WPW (Präexzitation, Delta-Welle)",75,true],["afib","Vorhofflimmern",110,true],["afibLBBB","Vorhofflimmern mit LSB",110,true],["aflutter","Vorhofflattern",150,true],["svt","Supraventrikuläre Tachykardie",190,true],
  ["avBlock1","AV-Block I°",70,true],["avBlock2Wenckebach","AV-Block II° Wenckebach",55,true],["avBlock2Mobitz","AV-Block II° Mobitz (2:1)",40,true],
- ["avBlock3","AV-Block III°",35,true],["pacemaker","Schrittmacher-Rhythmus",70,true],["vt","Ventrikuläre Tachykardie",180,true],["pvt","Pulslose ventrikuläre Tachykardie (pVT)",180,false],
- ["torsade","Torsade de Pointes",230,false],["vf","Kammerflimmern",0,false],["pea","PEA (pulslose elektrische Aktivität)",45,false],["asystole","Asystolie",0,false]];
+ ["avBlock3","AV-Block III°",35,true],["pacemaker","Schrittmacher-Rhythmus",70,true],["aivr","Idioventrikulärer Rhythmus (AIVR)",60,true],["ventricularEscape","Kammerersatzrhythmus",30,true],["vt","Ventrikuläre Tachykardie",180,true],["pvt","Pulslose ventrikuläre Tachykardie (pVT)",180,false],
+ ["polyVT","Polymorphe VT",220,false],["torsade","Torsade de Pointes",230,false],["vf","Kammerflimmern",0,false],["pea","PEA (pulslose elektrische Aktivität)",45,false],["asystole","Asystolie",0,false],
+ ["hyperkalemia","Hyperkaliämie",65,true],["pulmonaryEmbolism","Lungenembolie (S1Q3T3)",115,true],["pericarditis","Perikarditis",95,true]];
 const R=Object.fromEntries(RHYTHMS.map(r=>[r[0],{name:r[1],rate:r[2],pulse:r[3],usesRate:r[0]!=="vf"&&r[0]!=="asystole"}]));
-const CATS=[["Sinus",["sinus","sinusVES"]],["Ischämie",["stemi","stemiAnterior","stemiLateral","stemiAnterolateral"]],["Schenkelblock",["rbbb","lbbb"]],
- ["Tachykardie",["afib","aflutter","svt","vt"]],["Bradykardie & AV-Block",["avBlock1","avBlock2Wenckebach","avBlock2Mobitz","avBlock3","pacemaker"]],
- ["Reanimation",["vf","pvt","torsade","pea","asystole"]]];
+const CATS=[["Sinus & VES",["sinus","sinusBrady","sinusTachy","sinusVES","vesBigeminy","vesCouplets","vesRuns"]],
+ ["Ischämie",["stemi","stemiAnterior","stemiLateral","stemiAnterolateral","stemiRight","stemiPosterior","nstemi"]],["Leitungsstörung",["rbbb","lbbb","wpw"]],
+ ["Tachykardie",["afib","afibLBBB","aflutter","svt","vt"]],["Bradykardie & AV-Block",["avBlock1","avBlock2Wenckebach","avBlock2Mobitz","avBlock3","pacemaker","aivr","ventricularEscape"]],
+ ["Reanimation",["vf","pvt","polyVT","torsade","pea","asystole"]],["Sonstige",["hyperkalemia","pulmonaryEmbolism","pericarditis"]]];
+const PLACES=[["standard","V4–V6"],["right","V4R–V6R"],["posterior","V7–V9"]];
 
 let state=null, live=true, dirty=false, lastLocalChange=0, sendTimer=null, online=false;
 const $=id=>document.getElementById(id);
@@ -330,6 +338,7 @@ $("rightRail").innerHTML=
 $("cols").innerHTML=
   `<div class="col" id="colEcg" style="--c:var(--ecg)">
     <div class="chs"><button class="ch tgl" data-tg="ecgAttached">4-Kanal</button><button class="ch tgl" data-tg="ecg12Attached">12-Kanal</button></div>
+    <div class="chs place">${PLACES.map(p=>`<button class="ch pl" data-place="${p[0]}">${p[1]}</button>`).join("")}</div>
     <div class="body">
      <div class="cur"><b id="hrBig">--</b><small>/min</small></div>
      <button class="rname" data-open="shRhythm" id="rhythmName">–</button>
@@ -377,6 +386,7 @@ $("cols").innerHTML=
     </div></div>`;
 
 $("sensors").innerHTML=toggleRow("ecgAttached","EKG 4-polig (6 Ableitungen)")+toggleRow("ecg12Attached","EKG 12-Kanal (zusätzlich V1–V6)")+toggleRow("padsAttached","Defi-Pads (Reanimation)")+toggleRow("spo2Attached","SpO₂-Sensor")+toggleRow("nibpAttached","NIBP-Manschette")
+ +`<div class="r"><span>Brustwand V4–V6 kleben</span></div><div class="r seg">${PLACES.map(p=>`<button class="btn pl" data-place="${p[0]}">${p[0]==="standard"?"Standard":p[0]==="right"?"Rechts (V4R–V6R)":"Hinten (V7–V9)"}</button>`).join("")}</div>`
  +toggleRow("co2Attached","CO₂ (Kapnografie)")+toggleRow("tempAttached","Temperatursonde")
  +`<div class="r"><button class="btn" id="allOn">Alle anlegen</button><button class="btn red" id="allOff">Alle entfernen</button></div>`;
 $("vesBox").innerHTML=sliderRow("vesPerMinute","VES pro Minute (zufällig verteilt)","/min",1,20,1);
@@ -398,8 +408,23 @@ function ecgModel(id){
   const ev=[];let cont=null;const add=(ts,f)=>ts.forEach(t=>ev.push([t,f]));
   switch(id){
    case "sinus":add(every(.8,.3),t=>NQ(t));add(every(.8,.14),P);break;
+   case "sinusBrady":add(every(1.3,.4),t=>NQ(t));add(every(1.3,.24),P);break;
+   case "sinusTachy":add(every(.48,.25),t=>NQ(t));add(every(.48,.11),P);break;
    case "sinusVES":every(.8,.3).forEach((t,i)=>{if(i===2)ev.push([t,WQ]);else{ev.push([t,t=>NQ(t)]);ev.push([t-.16,P])}});break;
-   case "stemi":case "stemiAnterior":case "stemiLateral":case "stemiAnterolateral":add(every(.8,.3),t=>NQ(t,.3));add(every(.8,.14),P);break;
+   case "vesBigeminy":every(.8,.3).forEach((t,i)=>{if(i%2)ev.push([t-.1,WQ]);else{ev.push([t,t=>NQ(t)]);ev.push([t-.16,P])}});break;
+   case "vesCouplets":[[.3,0],[1.1,0],[1.75,1],[2.17,1],[3.05,0]].forEach(([t,v])=>{if(v)ev.push([t,WQ]);else{ev.push([t,t=>NQ(t)]);ev.push([t-.16,P])}});break;
+   case "vesRuns":[[.25,0],[1.0,1],[1.36,1],[1.72,1],[2.08,1],[2.95,0]].forEach(([t,v])=>{if(v)ev.push([t,WQ]);else{ev.push([t,t=>NQ(t)]);ev.push([t-.16,P])}});break;
+   case "nstemi":add(every(.7,.3),t=>NQ(t)*1-gs(t,.13,.06,.18));add(every(.7,.14),P);break;
+   case "wpw":add(every(.8,.3),t=>gs(t,-.05,.025,.3)+NQ(t)*.95);add(every(.8,.19),P);break;
+   case "afibLBBB":add([.25,.8,1.22,1.9,2.33,2.95],t=>gs(t,-.02,.022,.75)+gs(t,.035,.022,.75)+gs(t,.12,.05,-.15)+gs(t,.3,.06,-.25));cont=t=>.045*Math.sin(2*Math.PI*7*t)+.03*Math.sin(2*Math.PI*11.3*t+1);break;
+   case "aivr":add(every(1,.4),WQ);break;
+   case "ventricularEscape":add(every(1.9,.6),WQ);break;
+   case "polyVT":cont=t=>(.75*Math.sin(2*Math.PI*t/.28+Math.sin(t*1.7))+.2*Math.sin(4*Math.PI*t/.28))*(.55+.45*Math.cos(t*1.3));break;
+   case "hyperkalemia":add(every(.92,.3),t=>gs(t,-.02,.012,-.12)+gs(t,0,.015,1)+gs(t,.033,.014,-.3)+gs(t,.22,.035,.8));add(every(.92,.08),t=>P(t)*.4);break;
+   case "pulmonaryEmbolism":add(every(.52,.25),t=>NQ(t)+gs(t,.05,.014,.2));add(every(.52,.11),P);break;
+   case "pericarditis":add(every(.63,.3),t=>NQ(t)+gs(t,.1,.06,.15)+gs(t,-.06,.03,-.05));add(every(.63,.14),P);break;
+   case "stemi":case "stemiAnterior":case "stemiLateral":case "stemiAnterolateral":case "stemiRight":add(every(.8,.3),t=>NQ(t,.3));add(every(.8,.14),P);break;
+   case "stemiPosterior":add(every(.85,.3),t=>NQ(t)-gs(t,.12,.06,.08));add(every(.85,.14),P);break;
    case "rbbb":add(every(.8,.3),t=>NQ(t)-gs(t,.03,.012,.2)+gs(t,.058,.02,.45));add(every(.8,.14),P);break;
    case "lbbb":add(every(.85,.3),t=>gs(t,-.02,.022,.75)+gs(t,.035,.022,.75)+gs(t,.12,.05,-.15)+gs(t,.33,.06,-.25));add(every(.85,.14),P);break;
    case "afib":add([.25,.8,1.22,1.9,2.33,2.95],t=>NQ(t));cont=t=>.045*Math.sin(2*Math.PI*7*t)+.03*Math.sin(2*Math.PI*11.3*t+1);break;
@@ -519,6 +544,8 @@ function render(){
   $("powerLabel").textContent=state.monitorOn?"Monitor an":"Monitor aus";
   document.querySelectorAll('input[data-key="hasPulse"],[data-tg="hasPulse"]').forEach(el=>el.disabled=!r.pulse);
   $("pacerRail").classList.toggle("on",!!state.pacerActive);
+  document.querySelectorAll("[data-place]").forEach(el=>el.classList.toggle("on",(state.chestPlacement||"standard")===el.dataset.place));
+  document.querySelector(".place").classList.toggle("dim",!state.ecg12Attached);
   document.querySelector('input[data-key="pacerActive"]').disabled=!state.padsAttached&&!state.pacerActive;
   $("pacerHint").style.display=state.padsAttached?"none":"";
 }
@@ -560,6 +587,7 @@ document.addEventListener("click",e=>{
   if(!state)return;
   if(b.dataset.rhythm){const id=b.dataset.rhythm,r=R[id];state.rhythm=id;if(r.usesRate)state.heartRate=r.rate;state.hasPulse=r.pulse;changed()}
   else if(b.dataset.tg){if(!b.disabled)setValue(b.dataset.tg,!state[b.dataset.tg])}
+  else if(b.dataset.place)setValue("chestPlacement",b.dataset.place);
   else if(b.dataset.inc||b.dataset.dec){const k=b.dataset.inc||b.dataset.dec,s=SPEC[k],d=b.dataset.inc?s.step:-s.step;
     setValue(k,Math.min(s.max,Math.max(s.min,+(Math.round((state[k]+d)/s.step)*s.step).toFixed(2))))}
   else if(b.id==="allOn"||b.id==="allOff"){const on=b.id==="allOn";["ecgAttached","spo2Attached","nibpAttached","co2Attached","tempAttached"].forEach(k=>state[k]=on);if(!on){state.ecg12Attached=false;state.padsAttached=false}changed()}
