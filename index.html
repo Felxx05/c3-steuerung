@@ -50,8 +50,9 @@ select{font:600 14px -apple-system,system-ui;color:var(--text);background:var(--
 .rb.send:disabled{opacity:.4}
 .temp{flex:1.4 1 0;max-height:150px;color:var(--temp);cursor:default}
 .temp .v{font:700 22px -apple-system,system-ui;font-variant-numeric:tabular-nums}
-.temp .pm2{display:flex;gap:4px;width:100%}
-.temp .pm2 button{flex:1;height:30px;border:0;border-radius:6px;background:var(--key);color:var(--text);font-size:20px;line-height:1}
+.temp{box-sizing:border-box;min-width:0;width:100%;overflow:hidden;padding:6px}
+.temp .pm2{display:flex;gap:4px;width:100%;min-width:0}
+.temp .pm2 button{flex:1 1 0;min-width:0;padding:0;-webkit-appearance:none;appearance:none;height:30px;border:0;border-radius:6px;background:var(--key);color:var(--text);font-size:20px;line-height:1}
 .temp .lbl{border:0;background:none;padding:0;font-weight:700;color:inherit;font-size:12px;letter-spacing:.5px}
 .temp.off .v,.temp.off .lbl{opacity:.4}
 .liveSw{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--sub)}
