@@ -432,7 +432,7 @@ $("ecgToggles").innerHTML=toggleRow("hasPulse","Puls tastbar (Auswurf)")+toggleR
 $("pacer").innerHTML=toggleRow("pacerActive","Pacer eingeschaltet")+sliderRow("pacerThreshold","Reizschwelle","mA",0,200,5)+toggleRow("pacerMechanicalCapture","Mechanische Capture (Puls bei Stimulation)");
 const LUNG=[["normal","Vesikulär (physiologisch)"],["abgeschwaecht","Abgeschwächt"],["giemen","Giemen"],["brummen","Brummen"],["rasseln","Rasselgeräusche"],["stridor_insp","Stridor inspiratorisch"],["stridor_exsp","Stridor exspiratorisch"],["aufgehoben","Fehlend"]];
 const LUNGSIDE=[["beidseits","Beidseits"],["links","Nur links"],["rechts","Nur rechts"]];
-const HEART=[["normal","Normale Herztöne"],["leise","Leise Herztöne (Perikarderguss)"],["as","Systolikum – Aortenstenose"],["mi","Systolikum – Mitralinsuffizienz"],["ai","Diastolikum – Aorteninsuffizienz"],["s3","3. Herzton (Galopp)"],["reiben","Perikardreiben"]];
+const HEART=[["normal","Normale Herztöne"],["as","Aortenklappenstenose"],["mi","Mitralklappeninsuffizienz"],["ai","Aortenklappeninsuffizienz"],["s3","3. Herzton"]];
 const BOWEL=[["normal","Normal"],["spaerlich","Hypoaktiv"],["gesteigert","Hyperaktiv"],["klingend","Hohl, hochgestellt"],["stille","Keine"]];
 const selRow=(key,label,list)=>`<div class="r stack"><label>${label}</label><select data-key="${key}">${list.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join("")}</select></div>`;
 $("vitMeas").innerHTML=sliderRow("bloodGlucose","Blutzucker","mmol/l",1,33.3,0.1)+sliderRow("temperature","Temperatur (Ohr)","°C",30,43,0.1);
@@ -581,7 +581,7 @@ function render(){
   $("vitalsBtn").classList.toggle("dis",!vd);$("vitCount").textContent=vd>1?vd:"";
   if(!vd&&$("shVitals").classList.contains("open"))$("shVitals").classList.remove("open");
   // Lungenbefunde älterer Szenarien auf die heutige Liste abbilden
-  const LOLD={rgfeucht:"rasseln",knistern:"rasseln",stridor:"stridor_insp",bronchial:"normal",pleura:"normal"};if(LOLD[state.lungSound])state.lungSound=LOLD[state.lungSound];
+  const LOLD={rgfeucht:"rasseln",knistern:"rasseln",stridor:"stridor_insp",bronchial:"normal",pleura:"normal"};if(LOLD[state.lungSound])state.lungSound=LOLD[state.lungSound];if(state.heartSound==="leise"||state.heartSound==="reiben")state.heartSound="normal";
   document.querySelectorAll("select[data-key]").forEach(el=>{if(document.activeElement!==el)el.value=state[el.dataset.key]});
   $("pagerInfo").textContent=state.pagerAlarmID?"Zuletzt ausgelöst "+new Date(state.pagerAlarmAt*1000).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})+": "+state.pagerText.replace(/\n/g," · "):"Noch kein Einsatz ausgelöst.";
   document.querySelectorAll(".tile").forEach(el=>el.classList.toggle("on",el.dataset.rhythm===state.rhythm));
