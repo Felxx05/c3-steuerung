@@ -240,6 +240,7 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
   <header>Schrittmacher<button class="x">✕</button></header>
   <div class="cb">
     <div class="g" id="pacer"></div>
+    <div class="sf" id="pacerHint" style="color:#ff9f0a">Der Pacer geht nur mit angeschlossenen Pads (linke Leiste „Pads“).</div>
     <div class="sf">Ab dieser Stromstärke folgt auf jeden Pacer-Impuls ein breiter Kammerkomplex. Ohne mechanische Capture bleibt der Patient trotzdem pulslos.</div>
   </div>
 </div></div>
@@ -320,7 +321,7 @@ SPEC.temperature={min:30,max:43,step:0.1};
 $("rightRail").innerHTML=
   `<button class="rb" data-open="shRhythm">${icon("ecg")}Rhythmus</button>`
  +`<button class="rb" data-open="shDefi">${icon("defi")}Defi</button>`
- +`<button class="rb" data-open="shPacer">${icon("pacer")}Pacer</button>`
+ +`<button class="rb" data-open="shPacer" id="pacerRail" style="--c:#ff9f0a">${icon("pacer")}Pacer</button>`
  +`<button class="rb" data-open="shScn">${icon("scn")}Szenarien</button>`
  +`<button class="rb" data-open="shEvents">${icon("log")}Protokoll<span class="badge" id="evCount"></span></button>`
  +`<div class="rb liveSw"><input type="checkbox" class="sw" id="live" checked>Live senden</div>`
@@ -383,7 +384,7 @@ $("arrBox").innerHTML=sliderRow("rateMin","Frequenz von","/min",20,250,1)+slider
 $("convAfter").innerHTML=sliderRow("shockConversionAfter","Schocks bis zum Wechsel","",1,10,1);
 $("convRate").innerHTML=sliderRow("shockConversionRate","Frequenz nach Schock","/min",20,250,1);
 $("ecgToggles").innerHTML=toggleRow("hasPulse","Puls tastbar (Auswurf)")+toggleRow("cprArtifact","HLW-Artefakte (Thoraxkompressionen)")+toggleRow("motionArtifact","Bewegungsartefakte");
-$("pacer").innerHTML=sliderRow("pacerThreshold","Reizschwelle","mA",0,200,5)+toggleRow("pacerMechanicalCapture","Mechanische Capture (Puls bei Stimulation)");
+$("pacer").innerHTML=toggleRow("pacerActive","Pacer eingeschaltet")+sliderRow("pacerThreshold","Reizschwelle","mA",0,200,5)+toggleRow("pacerMechanicalCapture","Mechanische Capture (Puls bei Stimulation)");
 $("shockConversion").innerHTML=`<option value="">Unverändert</option>`+RHYTHMS.map(r=>`<option value="${r[0]}">${r[1]}</option>`).join("");
 
 // ---------- Kurven-Vorschau (nur zur Orientierung, gezeichnet aus einfachen Formen) ----------
@@ -515,6 +516,9 @@ function render(){
   $("convRate").style.display=state.shockConversion&&R[state.shockConversion].usesRate?"":"none";
   $("powerLabel").textContent=state.monitorOn?"Monitor an":"Monitor aus";
   document.querySelectorAll('input[data-key="hasPulse"],[data-tg="hasPulse"]').forEach(el=>el.disabled=!r.pulse);
+  $("pacerRail").classList.toggle("on",!!state.pacerActive);
+  document.querySelector('input[data-key="pacerActive"]').disabled=!state.padsAttached&&!state.pacerActive;
+  $("pacerHint").style.display=state.padsAttached?"none":"";
 }
 function renderBar(){$("sendBtn").style.display=live?"none":"";$("sendBtn").disabled=!dirty;$("sendBtn").textContent=dirty?"Senden":"Gesendet ✓"}
 function setOnline(ok,name){online=ok;$("dot").style.background=ok?"var(--ecg)":"var(--red)";$("dot").style.color=ok?"var(--ecg)":"var(--red)";$("conn").textContent=ok?"Verbunden mit "+name:"Keine Verbindung zum Monitor"}
