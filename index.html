@@ -60,7 +60,8 @@ select{font:600 14px -apple-system,system-ui;color:var(--text);background:var(--
 .col{--c:var(--ecg);display:flex;flex-direction:column;align-items:stretch;gap:6px;background:var(--panel);border-radius:10px;padding:6px;min-height:0;border-top:3px solid var(--c)}
 .ch{border:0;border-radius:6px;background:var(--c);color:#000;font:800 15px -apple-system,system-ui;letter-spacing:.5px;padding:7px 4px;display:flex;justify-content:center;gap:6px}
 .ch small{font-weight:600;font-size:11px;align-self:center}
-.col.off .ch{background:#262626;color:#777}
+.col.off .ch,.ch.tgl:not(.on){background:#262626;color:#777}
+.chs{display:flex;gap:4px}.chs .ch{flex:1;min-width:0;white-space:nowrap}
 .col.off .body{opacity:.4}
 .body{display:flex;flex-direction:column;gap:6px;flex:1;min-height:0;transition:opacity .2s}
 .cur{display:flex;align-items:baseline;justify-content:center;gap:4px;color:var(--c);white-space:nowrap}
@@ -147,6 +148,7 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
  .temp .v{font-size:16px}.temp .pm2 button{height:24px;font-size:16px}
  .col{padding:4px;gap:4px}.body{gap:4px}
  .ch{padding:4px;font-size:13px}
+ .chs .ch{font-size:11px;letter-spacing:0;padding:5px 2px}
  .cur b{font-size:clamp(20px,9vh,40px)}
  .cur b.long{font-size:clamp(16px,6vh,26px)}
  .liveSw .sw{transform:scale(.8)}.liveSw{gap:0}
@@ -295,6 +297,7 @@ const IC={
  defi:'<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
  pacer:'<path d="M3 15h4V5M7 15l2 4 2-10 2 6h8"/>',
  scn:'<path d="M3 6h18M3 12h18M3 18h12"/>',
+ pads:'<rect x="3" y="6" width="7" height="12" rx="2"/><rect x="14" y="6" width="7" height="12" rx="2"/><path d="M6.5 6V3M17.5 6V3"/>',
  log:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'};
 const icon=n=>`<svg viewBox="0 0 24 24">${IC[n]}</svg>`;
 
@@ -303,6 +306,7 @@ $("leftRail").innerHTML=
  +`<button class="rb" data-tg="motionArtifact" style="--c:var(--yellow)">${icon("art")}Artefakte</button>`
  +`<button class="rb" data-tg="hasPulse" style="--c:var(--ecg)">${icon("pulse")}Puls<br>tastbar</button>`
  +`<div class="rb temp" id="tempBox"><button class="lbl" data-tg="tempAttached">TEMP °C</button><span class="v" data-out="temperature" data-unit="" data-step="0.1"></span><div class="pm2">${pm("temperature")}</div></div>`
+ +`<button class="rb" data-tg="padsAttached" style="--c:#ff9f0a">${icon("pads")}Pads</button>`
  +`<button class="rb" data-open="shSensors">${icon("sens")}Sensoren<span class="badge" id="sensCount"></span></button>`;
 SPEC.temperature={min:30,max:43,step:0.1};
 
@@ -316,8 +320,8 @@ $("rightRail").innerHTML=
  +`<button class="rb send" id="sendBtn">Senden</button>`;
 
 $("cols").innerHTML=
-  `<div class="col" id="colEcg" style="--c:var(--ecg)" data-sensor="ecgAttached">
-    <button class="ch" data-tg="ecgAttached">EKG <small>HF</small></button>
+  `<div class="col" id="colEcg" style="--c:var(--ecg)">
+    <div class="chs"><button class="ch tgl" data-tg="ecgAttached">4-Kanal</button><button class="ch tgl" data-tg="ecg12Attached">12-Kanal</button></div>
     <div class="body">
      <div class="cur"><b id="hrBig">--</b><small>/min</small></div>
      <button class="rname" data-open="shRhythm" id="rhythmName">–</button>
@@ -473,6 +477,7 @@ function render(){
   document.querySelectorAll(".vs").forEach(el=>{const s=SPEC[el.dataset.vs];el.style.setProperty("--p",Math.max(0,Math.min(1,(state[el.dataset.vs]-s.min)/(s.max-s.min))))});
   document.querySelectorAll(".col[data-sensor]").forEach(el=>el.classList.toggle("off",!state[el.dataset.sensor]));
   $("tempBox").classList.toggle("off",!state.tempAttached);
+  $("colEcg").classList.toggle("off",!(state.ecgAttached||state.ecg12Attached||state.padsAttached));
   // EKG-Spalte: ein Regler (Frequenz) oder zwei (von/bis) bei arrhythmisch
   const arr=state.arrhythmic&&r.usesRate;
   $("hrOne").style.display=$("hrPm1").style.display=arr?"none":"";
