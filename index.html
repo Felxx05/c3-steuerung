@@ -276,12 +276,12 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
 <script>
 const RHYTHMS=[
  ["sinus","Sinusrhythmus",75,true],["sinusVES","Sinusrhythmus mit VES",80,true],["stemi","STEMI Hinterwand (II, III, aVF)",60,true],["stemiAnterior","STEMI Vorderwand (V1–V4)",95,true],["stemiLateral","STEMI Seitenwand (I, aVL, V5, V6)",85,true],["stemiAnterolateral","STEMI großer Vorderwandinfarkt (V1–V6, I, aVL)",105,true],
- ["afib","Vorhofflimmern",110,true],["aflutter","Vorhofflattern",150,true],["svt","Supraventrikuläre Tachykardie",190,true],
+ ["rbbb","Rechtsschenkelblock (RSB)",75,true],["lbbb","Linksschenkelblock (LSB)",70,true],["afib","Vorhofflimmern",110,true],["aflutter","Vorhofflattern",150,true],["svt","Supraventrikuläre Tachykardie",190,true],
  ["avBlock1","AV-Block I°",70,true],["avBlock2Wenckebach","AV-Block II° Wenckebach",55,true],["avBlock2Mobitz","AV-Block II° Mobitz (2:1)",40,true],
  ["avBlock3","AV-Block III°",35,true],["pacemaker","Schrittmacher-Rhythmus",70,true],["vt","Ventrikuläre Tachykardie",180,true],["pvt","Pulslose ventrikuläre Tachykardie (pVT)",180,false],
  ["torsade","Torsade de Pointes",230,false],["vf","Kammerflimmern",0,false],["pea","PEA (pulslose elektrische Aktivität)",45,false],["asystole","Asystolie",0,false]];
 const R=Object.fromEntries(RHYTHMS.map(r=>[r[0],{name:r[1],rate:r[2],pulse:r[3],usesRate:r[0]!=="vf"&&r[0]!=="asystole"}]));
-const CATS=[["Sinus",["sinus","sinusVES"]],["Ischämie",["stemi","stemiAnterior","stemiLateral","stemiAnterolateral"]],
+const CATS=[["Sinus",["sinus","sinusVES"]],["Ischämie",["stemi","stemiAnterior","stemiLateral","stemiAnterolateral"]],["Schenkelblock",["rbbb","lbbb"]],
  ["Tachykardie",["afib","aflutter","svt","vt"]],["Bradykardie & AV-Block",["avBlock1","avBlock2Wenckebach","avBlock2Mobitz","avBlock3","pacemaker"]],
  ["Reanimation",["vf","pvt","torsade","pea","asystole"]]];
 
@@ -400,6 +400,8 @@ function ecgModel(id){
    case "sinus":add(every(.8,.3),t=>NQ(t));add(every(.8,.14),P);break;
    case "sinusVES":every(.8,.3).forEach((t,i)=>{if(i===2)ev.push([t,WQ]);else{ev.push([t,t=>NQ(t)]);ev.push([t-.16,P])}});break;
    case "stemi":case "stemiAnterior":case "stemiLateral":case "stemiAnterolateral":add(every(.8,.3),t=>NQ(t,.3));add(every(.8,.14),P);break;
+   case "rbbb":add(every(.8,.3),t=>NQ(t)-gs(t,.03,.012,.2)+gs(t,.058,.02,.45));add(every(.8,.14),P);break;
+   case "lbbb":add(every(.85,.3),t=>gs(t,-.02,.022,.75)+gs(t,.035,.022,.75)+gs(t,.12,.05,-.15)+gs(t,.33,.06,-.25));add(every(.85,.14),P);break;
    case "afib":add([.25,.8,1.22,1.9,2.33,2.95],t=>NQ(t));cont=t=>.045*Math.sin(2*Math.PI*7*t)+.03*Math.sin(2*Math.PI*11.3*t+1);break;
    case "aflutter":add(every(.4,.28),t=>NQ(t));cont=t=>{const f=(t/.2)%1;if(f<.58)return .1-.1*Math.pow(f/.58,1.3);if(f<.78){const u=(f-.58)/.2;return -.36*u*u*(3-2*u)}const u=(f-.78)/.22;return -.36+.46*(1-(1-u)*(1-u))};break;
    case "svt":add(every(.32,.2),t=>NQ(t)*.9);break;
