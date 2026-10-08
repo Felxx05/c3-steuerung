@@ -97,6 +97,7 @@ select{font:600 14px -apple-system,system-ui;color:var(--text);background:var(--
 .card.wide{width:min(980px,100%)}
 .card header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #2c2c2c;font:700 17px -apple-system,system-ui}
 .x{flex:none;border:0;padding:0;margin:0 -4px 0 12px;background:#2a2a2a;color:#c8c8c8;border-radius:50%;width:30px;height:30px;display:grid;place-items:center;-webkit-appearance:none;appearance:none}
+.hb{flex:none;margin-left:auto;border:0;background:#2a2a2a;color:#ff6b6b;border-radius:15px;height:30px;padding:0 12px;font:600 13px -apple-system,system-ui;-webkit-appearance:none;appearance:none}
 .x svg{width:12px;height:12px;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;fill:none;display:block}
 .x:active{background:#3a3a3a}
 .cb{overflow-y:auto;padding:10px 14px 14px;-webkit-overflow-scrolling:touch}
@@ -292,13 +293,13 @@ textarea.txt{width:100%;resize:vertical;font:15px/1.4 -apple-system,system-ui;mi
         <div class="r"><input class="txt" id="scnNote" placeholder="Beschreibung (optional)" maxlength="200" autocomplete="off"></div>
         <div class="r"><button class="pill" id="scnSave">Aktuelle Einstellungen als Szenario speichern</button></div>
       </div>
-      <div class="sf">Gespeichert werden Rhythmus, Frequenz, Puls, Vitalwerte, Rhythmus nach Schock und Pacer-Schwelle. Die Szenarien liegen dauerhaft auf dem iPad und sind von jedem gekoppelten Handy aus sichtbar. Gleicher Name überschreibt das alte Szenario.</div>
+      <div class="sf">Gespeichert werden Rhythmus, Frequenz, Puls, Vitalwerte, Rhythmus nach Schock, Pacer-Schwelle sowie aus FM Vitals Blutzucker, Abhörbefunde und die vorbereitete Einsatzmeldung. Nach dem Laden muss nur noch der Einsatz ausgelöst werden. Die Szenarien liegen dauerhaft auf dem iPad und sind von jedem gekoppelten Handy aus sichtbar. Gleicher Name überschreibt das alte Szenario.</div>
     </div>
   </div>
 </div></div>
 
 <div class="sheet" id="shEvents"><div class="card">
-  <header>Protokoll vom Monitor<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
+  <header>Protokoll vom Monitor<button class="hb" id="evClear">Zurücksetzen</button><button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
   <div class="cb"><div class="g" id="events"><div class="ev"><small>Noch keine Aktionen am Monitor.</small></div></div></div>
 </div></div>
 
@@ -535,7 +536,7 @@ async function send(){
   try{await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(state)});dirty=false;renderBar()}
   catch(e){setOnline(false)}
 }
-const SCN_KEYS=["rhythm","heartRate","hasPulse","arrhythmic","rateMin","rateMax","vesPerMinute","spo2","respRate","etco2","temperature","nibpSys","nibpDia","shockConversion","shockConversionRate","shockConversionAfter","pacerThreshold","pacerMechanicalCapture"];
+const SCN_KEYS=["rhythm","heartRate","hasPulse","arrhythmic","rateMin","rateMax","vesPerMinute","spo2","respRate","etco2","temperature","nibpSys","nibpDia","shockConversion","shockConversionRate","shockConversionAfter","pacerThreshold","pacerMechanicalCapture","bloodGlucose","lungSound","lungSide","heartSound","abdomenSound"];
 let scenarios=[],scenarioJSON="";
 async function sendScenario(msg){
   if(NATIVE){post(msg);return}
@@ -641,16 +642,20 @@ document.addEventListener("click",e=>{
     setValue(k,Math.min(s.max,Math.max(s.min,+(Math.round((state[k]+d)/s.step)*s.step).toFixed(2))))}
   else if(b.id==="allOn"||b.id==="allOff"){const on=b.id==="allOn";["ecgAttached","spo2Attached","nibpAttached","co2Attached","tempAttached"].forEach(k=>state[k]=on);if(!on){state.ecg12Attached=false;state.padsAttached=false}changed()}
   else if(b.dataset.load){const c=scenarios.find(x=>x.id===b.dataset.load);if(!c)return;
-    SCN_KEYS.forEach(k=>state[k]=c[k]===undefined?null:c[k]);state.hasPulse=c.hasPulse&&R[c.rhythm].pulse;state.shockConversionAfter=c.shockConversionAfter||1;state.arrhythmic=!!c.arrhythmic;state.rateMin=c.rateMin||60;state.rateMax=c.rateMax||100;state.vesPerMinute=c.vesPerMinute||6;state.cprArtifact=false;state.motionArtifact=false;
+    const VK=["bloodGlucose","lungSound","lungSide","heartSound","abdomenSound"];
+    SCN_KEYS.forEach(k=>{if(VK.includes(k)){if(c[k]!==undefined&&c[k]!==null)state[k]=c[k]}else state[k]=c[k]===undefined?null:c[k]});
+    if(typeof c.pagerText==="string"){state.pagerText=c.pagerText;$("pagerDraft").value=c.pagerText}state.hasPulse=c.hasPulse&&R[c.rhythm].pulse;state.shockConversionAfter=c.shockConversionAfter||1;state.arrhythmic=!!c.arrhythmic;state.rateMin=c.rateMin||60;state.rateMax=c.rateMax||100;state.vesPerMinute=c.vesPerMinute||6;state.cprArtifact=false;state.motionArtifact=false;
     changed();if(!live)send();closeSheets()}
   else if(b.dataset.del){const c=scenarios.find(x=>x.id===b.dataset.del);if(c&&confirm(`Szenario „${c.name}“ löschen?`))sendScenario({deleteScenario:c.id})}
   else if(b.id==="scnSave"){const name=$("scnName").value.trim();if(!name){$("scnName").focus();return}
-    const c={id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),name,note:$("scnNote").value.trim()};SCN_KEYS.forEach(k=>c[k]=state[k]);
+    const c={id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),name,note:$("scnNote").value.trim()};SCN_KEYS.forEach(k=>c[k]=state[k]);c.pagerText=$("pagerDraft").value.trim();
     if(scenarios.some(x=>x.name===name)&&!confirm(`„${name}“ gibt es schon. Überschreiben?`))return;
     sendScenario({saveScenario:c});$("scnName").value="";$("scnNote").value="";b.textContent="Gespeichert ✓";setTimeout(()=>b.textContent="Aktuelle Einstellungen als Szenario speichern",1500)}
   else if(b.id==="pagerFire"){const t=$("pagerDraft").value.trim();if(!t){$("pagerDraft").focus();toast("Bitte zuerst die Einsatzmeldung eingeben.");return}
     state.pagerText=t;state.pagerAlarmID=(state.pagerAlarmID||0)+1;state.pagerAlarmAt=Date.now()/1000;changed();if(!live)send();
     b.textContent="Ausgelöst ✓";setTimeout(()=>b.textContent="Einsatz auslösen",1800)}
+  else if(b.id==="evClear"){if(!confirm("Protokoll vom Monitor löschen?"))return;
+    state.eventsClearedAt=Date.now()/1000;$("events").innerHTML=`<div class="ev"><small>Noch keine Aktionen am Monitor.</small></div>`;$("evCount").textContent="";changed();if(!live)send()}
   else if(b.id==="sendBtn")send();
 });
 document.addEventListener("change",e=>{const el=e.target;if(el.tagName==="SELECT"&&el.dataset.key&&state)setValue(el.dataset.key,el.value)});
