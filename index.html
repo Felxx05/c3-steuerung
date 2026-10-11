@@ -728,7 +728,7 @@ function startRelay(c){
   $("codeInfo").style.display="block";
   $("codeInfo").innerHTML=`Code ${code} · <button class="lnk" id="codeReset">Anderen Monitor koppeln</button><br><small id="rtt"></small>`;
   $("conn").textContent="Verbinde …";
-  lastSent=0;connectBroker();
+  lastSent=0;statusCount=0;connectBroker();
 }
 // Mit allen Brokern gleichzeitig verbinden: gesendet wird über alle, empfangen wird die jeweils
 // erste Kopie (doppelte und ältere Meldungen werden verworfen). So bremst ein langsamer Broker nicht.
@@ -763,13 +763,18 @@ function freshStatus(p){
   if(seenNow.has(p))return null;
   seenNow.add(p);return j;
 }
+// Lebenszeichen nach der eigenen Uhr messen: Die Uhren von iPad und Handy gehen oft um
+// Sekunden auseinander. Nur die erste Meldung nach dem Verbinden (evtl. die beim Broker
+// gespeicherte alte) wird nach ihrem Zeitstempel beurteilt; jede weitere ist neuer und damit live.
+let statusCount=0;
+function seenAt(j){return statusCount++===0&&j.sentAt?Date.parse(j.sentAt):Date.now()}
 function connectBroker(){
   if(client)client.end();
   everConnected=false;
   $("conn").textContent="Verbinde …";
   client=multiClient("c3web",c=>{everConnected=true;c.publish(topic("control"),JSON.stringify({ping:true}))},p=>{
     const j=freshStatus(p);if(!j)return;
-    try{lastSeen=j.sentAt?Date.parse(j.sentAt):Date.now();handleStatus(j);checkOnline()}catch(e){}
+    try{lastSeen=seenAt(j);handleStatus(j);checkOnline()}catch(e){}
   },checkOnline);
 }
 function checkOnline(){
