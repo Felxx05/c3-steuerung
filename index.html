@@ -525,27 +525,21 @@ function setValue(key,v){
 function changed(){lastLocalChange=Date.now();render();if(live){clearTimeout(sendTimer);sendTimer=setTimeout(send,120)}else{dirty=true;renderBar()}}
 // Verbindung: im lokalen WLAN direkt per HTTP zum iPad, sonst übers Internet (MQTT-Broker)
 // Gleiche Liste wie RelayClient.brokerURLs in der Monitor-App. Der Monitor ist mit allen
-// verbunden, die Seite nimmt einen davon (siehe relayClient).
+// verbunden, die Seite nimmt den ersten, der aus diesem Netz erreichbar ist.
 const BROKERS=["wss://mqtt.eclipseprojects.io:443/mqtt","wss://broker.emqx.io:8084/mqtt","wss://broker.hivemq.com:8884/mqtt","wss://test.mosquitto.org:8081/mqtt"];
-let everConnected=false;
+let brokerIndex=0, everConnected=false, brokerTimer=null;
 // In der Trainer-App läuft diese Seite in einer WebView; dann geht alles über die App (Multipeer).
 const NATIVE=!!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.c3);
 function post(o){window.webkit.messageHandlers.c3.postMessage(JSON.stringify(o))}
 const RELAY=!NATIVE&&location.protocol==="https:";
 let code=null, client=null, lastSeen=0, monitorName="";
 function topic(t){return "c3sim/"+code+"/"+t}
-// Jede Nachricht bekommt eine laufende Nummer: Der Monitor verwirft doppelte und ältere Kopien
-// und meldet im Status (ack) zurück, welche er zuletzt übernommen hat.
-const myId="w"+Math.random().toString(36).slice(2,9);
-let seqNo=0,lastSentSeq=0,lastSentAt=0;
-function stamp(msg){seqNo=Math.max(Date.now(),seqNo+1);msg.seq=seqNo;msg.from=myId;return msg}
 async function send(){
   if(!state)return;
   if(NATIVE){post({state});dirty=false;renderBar();return}
   if(RELAY){
     if(!client||!client.connected)return;
-    const msg=stamp({state});lastSentSeq=msg.seq;lastSentAt=Date.now();lagPending=true;
-    client.publish(topic("control"),JSON.stringify(msg));dirty=false;renderBar();return;
+    client.publish(topic("control"),JSON.stringify({state}));dirty=false;renderBar();return;
   }
   try{await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(state)});dirty=false;renderBar()}
   catch(e){setOnline(false)}
@@ -554,7 +548,7 @@ const SCN_KEYS=["rhythm","heartRate","hasPulse","arrhythmic","rateMin","rateMax"
 let scenarios=[],scenarioJSON="";
 async function sendScenario(msg){
   if(NATIVE){post(msg);return}
-  if(RELAY){if(client&&client.connected)client.publish(topic("control"),JSON.stringify(stamp(msg)));return}
+  if(RELAY){if(client&&client.connected)client.publish(topic("control"),JSON.stringify(msg));return}
   try{if(msg.saveScenario)await fetch("/api/scenario",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(msg.saveScenario)});
    else await fetch("/api/scenario/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:msg.deleteScenario})})}
   catch(e){setOnline(false)}
@@ -615,9 +609,7 @@ function render(){
   $("pacerHint").style.display=state.padsAttached?"none":"";
 }
 function renderBar(){$("sendBtn").style.display=live?"none":"";$("sendBtn").disabled=!dirty;$("sendBtn").textContent=dirty?"Senden":"Gesendet ✓"}
-function setOnline(ok,name){online=ok;$("dot").style.background=ok?"var(--ecg)":"var(--red)";$("dot").style.color=ok?"var(--ecg)":"var(--red)";$("conn").textContent=ok?"Verbunden mit "+name+(lagText?" · "+lagText:""):"Keine Verbindung zum Monitor"}
-// Wie lange der Monitor zuletzt bis zur Übernahme einer Änderung gebraucht hat (nur Internet-Kopplung)
-let lagText="",lagPending=false;
+function setOnline(ok,name){online=ok;$("dot").style.background=ok?"var(--ecg)":"var(--red)";$("dot").style.color=ok?"var(--ecg)":"var(--red)";$("conn").textContent=ok?"Verbunden mit "+name:"Keine Verbindung zum Monitor"}
 
 function openSheet(id){if(id==="shRhythm"&&state){const i=CATS.findIndex(c=>c[1].includes(state.rhythm));catIndex=i<0?0:i;renderCats()}$(id).classList.add("open")}
 function closeSheets(){document.querySelectorAll(".sheet.open").forEach(s=>{if(s.id!=="shCode")s.classList.remove("open")})}
@@ -680,21 +672,6 @@ document.addEventListener("change",e=>{const el=e.target;if(el.tagName==="SELECT
 
 function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
 let lastServerOn=null,lastRevision=null;
-// Monitorstand erst übernehmen, wenn er die letzte eigene Änderung bestätigt hat
-// (ältere Monitor-Versionen ohne ack: 3 s nach der letzten Änderung).
-function caughtUp(j){
-  const quiet=Date.now()-lastLocalChange;
-  if(RELAY&&j.ack){
-    const ok=(j.ack[myId]||0)>=lastSentSeq;
-    if(ok&&lagPending){lagPending=false;lagText="Monitor übernimmt nach "+((Date.now()-lastSentAt)/1000).toFixed(1).replace(".",",")+" s"}
-    // Unterwegs verloren gegangen → noch einmal schicken
-    if(!ok&&live&&Date.now()-lastSentAt>3000)send();
-    return ok&&quiet>800;
-  }
-  // Ältere Monitor-Version ohne Bestätigung: im Internetbetrieb nichts übernehmen, sonst springt
-  // die Steuerung auf verspätete Stände zurück (eigene Änderungen am Monitor kommen über die Revision)
-  return !RELAY&&quiet>3000;
-}
 function handleStatus(j){
   monitorName=j.monitorName;
   // Am Monitor selbst ein- oder ausgeschaltet → sofort übernehmen (beim Ausschalten setzt er alles zurück)
@@ -706,7 +683,7 @@ function handleStatus(j){
   renderScenarios(j.scenarios);
   // Verbundene FM-Vitals-Geräte meldet nur der Monitor – immer übernehmen
   if(state&&j.state&&(j.state.vitalsDevices||0)!==(state.vitalsDevices||0)){state.vitalsDevices=j.state.vitalsDevices||0;render()}
-  if(!state||powerChanged||monitorChanged||(live&&!dirty&&!drag&&caughtUp(j))){state=j.state;if(state.shockConversion===undefined)state.shockConversion=null;dirty=false;renderBar();render()}
+  if(!state||powerChanged||monitorChanged||(live&&!dirty&&!drag&&Date.now()-lastLocalChange>3000)){state=j.state;if(state.shockConversion===undefined)state.shockConversion=null;dirty=false;renderBar();render()}
   const ev=$("events");
   ev.innerHTML=j.events.length?j.events.map(e=>`<div class="ev"><small>${new Date(e.date).toLocaleTimeString("de-DE")}</small>${esc(e.text)}</div>`).join("")
     :`<div class="ev"><small>Noch keine Aktionen am Monitor.</small></div>`;
@@ -726,76 +703,28 @@ function startRelay(c){
   store("c3code",code);
   $("shCode").classList.remove("open");
   $("codeInfo").style.display="block";
-  $("codeInfo").innerHTML=`Code ${code} · <button class="lnk" id="codeReset">Anderen Monitor koppeln</button><br><small id="rtt"></small>`;
+  $("codeInfo").innerHTML=`Code ${code} · <button class="lnk" id="codeReset">Anderen Monitor koppeln</button>`;
   $("conn").textContent="Verbinde …";
-  lastSent=0;statusCount=0;connectBroker();
+  brokerIndex=0;connectBroker();
 }
-// Eine Verbindung zu einem Broker: Beim Start versuchen es alle gleichzeitig, der erste,
-// der antwortet, gewinnt, die anderen werden sofort geschlossen. Bleibt die Verbindung
-// länger als 6 s weg, wird neu ausgewählt. (Dauerhaft mehrere Verbindungen gleichzeitig
-// führten bei einigen Geräten zu ständigen Abbrüchen.)
-function relayClient(prefix,onConnect,onMessage,onChange,topics=["status"]){
-  const id=prefix+"-"+code+"-"+Math.random().toString(16).slice(2,8);
-  const echo=topic("echo/"+id);
-  let c=null,idx=-1,tries=[],rtt=null,drops=0,up=false,downSince=Date.now(),dead=false;
-  function drop(x){x.removeAllListeners();x.end(true)}
-  function onUp(){
-    up=true;topics.forEach(x=>c.subscribe(topic(x)));c.subscribe(echo);onConnect(c);onChange();showRtt();
-  }
-  function race(){
-    if(c){drop(c);c=null}
-    tries.forEach(drop);rtt=null;up=false;downSince=Date.now();onChange();showRtt();
-    tries=BROKERS.map((u,i)=>{
-      const t=mqtt.connect(u,{clientId:id+"-"+i,clean:true,keepalive:30,connectTimeout:8000,reconnectPeriod:2000});
-      t.once("connect",()=>{
-        if(c)return;
-        c=t;idx=i;tries.filter(o=>o!==t).forEach(drop);tries=[];
-        t.on("connect",onUp);
-        t.on("message",(tp,p)=>{
-          // Eigenes Echo: Laufzeit messen
-          if(tp===echo){try{rtt=Date.now()-JSON.parse(p.toString()).t}catch(e){}showRtt();return}
-          onMessage(p.toString(),tp)});
-        t.on("close",()=>{if(up){drops++;up=false;downSince=Date.now()}rtt=null;onChange();showRtt()});
-        t.on("offline",onChange);
-        onUp();
-      });
-      return t});
-  }
-  const timer=setInterval(()=>{if(!dead&&c&&!c.connected&&Date.now()-downSince>6000)race()},2000);
-  race();
-  return{get connected(){return !!c&&c.connected},
-    publish(t,m){if(c&&c.connected)c.publish(t,m)},
-    end(){dead=true;clearInterval(timer);tries.forEach(drop);if(c)drop(c)},
-    ping(){if(c&&c.connected)c.publish(echo,JSON.stringify({t:Date.now()}))},
-    info(){return !c?"wird gesucht …":new URL(BROKERS[idx]).hostname.split(".").slice(-2,-1)[0]+": "+(c.connected?(rtt!=null?rtt+" ms":"verbunden"):"getrennt")+" · Abbrüche "+drops}};
-}
-function showRtt(){const el=$("rtt");if(el&&client&&client.info)el.textContent="Server "+client.info()}
-let lastSent=0,seenNow=new Set();
-function freshStatus(p){
-  let j;try{j=JSON.parse(p)}catch(e){return null}
-  const t=j.sentAt?Date.parse(j.sentAt):0;
-  if(t&&t<lastSent)return null;
-  if(t>lastSent){lastSent=t;seenNow=new Set()}
-  if(seenNow.has(p))return null;
-  seenNow.add(p);return j;
-}
-// Lebenszeichen nach der eigenen Uhr messen: Die Uhren von iPad und Handy gehen oft um
-// Sekunden auseinander. Nur die erste Meldung nach dem Verbinden (evtl. die beim Broker
-// gespeicherte alte) wird nach ihrem Zeitstempel beurteilt; jede weitere ist neuer und damit live.
-let statusCount=0;
-function seenAt(j){return statusCount++===0&&j.sentAt?Date.parse(j.sentAt):Date.now()}
 function connectBroker(){
-  if(client)client.end();
+  if(client){client.removeAllListeners();client.end(true)}
   everConnected=false;
-  $("conn").textContent="Verbinde …";
-  client=relayClient("c3web",c=>{everConnected=true;c.publish(topic("control"),JSON.stringify({ping:true}))},p=>{
-    const j=freshStatus(p);if(!j)return;
-    try{lastSeen=seenAt(j);handleStatus(j);checkOnline()}catch(e){}
-  },checkOnline);
+  const url=BROKERS[brokerIndex], host=new URL(url).hostname;
+  $("conn").textContent="Verbinde über "+host+" …";
+  client=mqtt.connect(url,{clientId:"c3web-"+code+"-"+Math.random().toString(16).slice(2,8),clean:true,keepalive:30,connectTimeout:6000,reconnectPeriod:2000});
+  clearTimeout(brokerTimer);
+  // Klappt die erste Verbindung nicht in 7 s, nächsten Broker probieren
+  brokerTimer=setTimeout(()=>{if(!everConnected){brokerIndex=(brokerIndex+1)%BROKERS.length;connectBroker()}},7000);
+  client.on("connect",()=>{everConnected=true;clearTimeout(brokerTimer);client.subscribe(topic("status"));client.publish(topic("control"),JSON.stringify({ping:true}));checkOnline()});
+  client.on("message",(t,payload)=>{
+    try{const j=JSON.parse(payload.toString());lastSeen=j.sentAt?Date.parse(j.sentAt):Date.now();handleStatus(j);checkOnline()}catch(e){}
+  });
+  client.on("offline",checkOnline);
 }
 function checkOnline(){
   if(!RELAY||!code)return;
-  if(!client||!client.connected){setOnline(false);$("conn").textContent=everConnected?"Verbindung unterbrochen …":"Verbinde …";return}
+  if(!client||!client.connected){setOnline(false);$("conn").textContent=everConnected?"Verbindung unterbrochen …":"Verbinde über "+new URL(BROKERS[brokerIndex]).hostname+" …";return}
   const fresh=Date.now()-lastSeen<20000;
   if(fresh)setOnline(true,monitorName);
   else{setOnline(false);$("conn").textContent=state?"Monitor offline – App am iPad geöffnet?":"Warte auf Monitor "+code+" …"}
@@ -803,7 +732,7 @@ function checkOnline(){
 function showCodeEntry(){$("shCode").classList.add("open");$("codeInfo").style.display="none";$("conn").textContent="Noch nicht gekoppelt";$("codeInput").focus()}
 document.addEventListener("click",e=>{
   if(e.target.id==="codeBtn"){const v=$("codeInput").value.trim();if(v.length>=6){history.replaceState(null,"","?code="+encodeURIComponent(v.toUpperCase()));startRelay(v)}}
-  else if(e.target.id==="codeReset"){store("c3code",null);if(client)client.end();client=null;code=null;showCodeEntry()}
+  else if(e.target.id==="codeReset"){store("c3code",null);if(client)client.end(true);client=null;code=null;showCodeEntry()}
 });
 
 // Nur Querformat: wo der Browser es erlaubt, festhalten (sonst zeigt die Seite einen Hinweis)
@@ -833,7 +762,6 @@ if(NATIVE){
   if(c)startRelay(c);else showCodeEntry();
   setInterval(checkOnline,2000);
   setInterval(()=>{if(client&&client.connected)client.publish(topic("control"),JSON.stringify({ping:true}))},5000);
-  setInterval(()=>{if(client&&client.ping){client.ping();showRtt()}},4000);
 }else{poll();setInterval(poll,1500)}
 
 // ---------- Als App installieren ----------
