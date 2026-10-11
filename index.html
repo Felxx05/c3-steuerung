@@ -544,7 +544,7 @@ async function send(){
   if(NATIVE){post({state});dirty=false;renderBar();return}
   if(RELAY){
     if(!client||!client.connected)return;
-    const msg=stamp({state});lastSentSeq=msg.seq;lastSentAt=Date.now();
+    const msg=stamp({state});lastSentSeq=msg.seq;lastSentAt=Date.now();lagPending=true;
     client.publish(topic("control"),JSON.stringify(msg));dirty=false;renderBar();return;
   }
   try{await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(state)});dirty=false;renderBar()}
@@ -615,7 +615,9 @@ function render(){
   $("pacerHint").style.display=state.padsAttached?"none":"";
 }
 function renderBar(){$("sendBtn").style.display=live?"none":"";$("sendBtn").disabled=!dirty;$("sendBtn").textContent=dirty?"Senden":"Gesendet ✓"}
-function setOnline(ok,name){online=ok;$("dot").style.background=ok?"var(--ecg)":"var(--red)";$("dot").style.color=ok?"var(--ecg)":"var(--red)";$("conn").textContent=ok?"Verbunden mit "+name:"Keine Verbindung zum Monitor"}
+function setOnline(ok,name){online=ok;$("dot").style.background=ok?"var(--ecg)":"var(--red)";$("dot").style.color=ok?"var(--ecg)":"var(--red)";$("conn").textContent=ok?"Verbunden mit "+name+(lagText?" · "+lagText:""):"Keine Verbindung zum Monitor"}
+// Wie lange der Monitor zuletzt bis zur Übernahme einer Änderung gebraucht hat (nur Internet-Kopplung)
+let lagText="",lagPending=false;
 
 function openSheet(id){if(id==="shRhythm"&&state){const i=CATS.findIndex(c=>c[1].includes(state.rhythm));catIndex=i<0?0:i;renderCats()}$(id).classList.add("open")}
 function closeSheets(){document.querySelectorAll(".sheet.open").forEach(s=>{if(s.id!=="shCode")s.classList.remove("open")})}
@@ -684,11 +686,14 @@ function caughtUp(j){
   const quiet=Date.now()-lastLocalChange;
   if(RELAY&&j.ack){
     const ok=(j.ack[myId]||0)>=lastSentSeq;
+    if(ok&&lagPending){lagPending=false;lagText="Monitor übernimmt nach "+((Date.now()-lastSentAt)/1000).toFixed(1).replace(".",",")+" s"}
     // Unterwegs verloren gegangen → noch einmal schicken
     if(!ok&&live&&Date.now()-lastSentAt>3000)send();
     return ok&&quiet>800;
   }
-  return quiet>3000;
+  // Ältere Monitor-Version ohne Bestätigung: im Internetbetrieb nichts übernehmen, sonst springt
+  // die Steuerung auf verspätete Stände zurück (eigene Änderungen am Monitor kommen über die Revision)
+  return !RELAY&&quiet>3000;
 }
 function handleStatus(j){
   monitorName=j.monitorName;
