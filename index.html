@@ -525,9 +525,9 @@ function setValue(key,v){
 function changed(){lastLocalChange=Date.now();render();if(live){clearTimeout(sendTimer);sendTimer=setTimeout(send,120)}else{dirty=true;renderBar()}}
 // Verbindung: im lokalen WLAN direkt per HTTP zum iPad, sonst übers Internet (MQTT-Broker)
 // Gleiche Liste wie RelayClient.brokerURLs in der Monitor-App. Der Monitor ist mit allen
-// verbunden, die Seite nimmt den ersten, der aus diesem Netz erreichbar ist.
+// verbunden, die Seite ebenfalls (siehe multiClient).
 const BROKERS=["wss://mqtt.eclipseprojects.io:443/mqtt","wss://broker.emqx.io:8084/mqtt","wss://broker.hivemq.com:8884/mqtt","wss://test.mosquitto.org:8081/mqtt"];
-let brokerIndex=0, everConnected=false, brokerTimer=null;
+let everConnected=false;
 // In der Trainer-App läuft diese Seite in einer WebView; dann geht alles über die App (Multipeer).
 const NATIVE=!!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.c3);
 function post(o){window.webkit.messageHandlers.c3.postMessage(JSON.stringify(o))}
@@ -705,26 +705,43 @@ function startRelay(c){
   $("codeInfo").style.display="block";
   $("codeInfo").innerHTML=`Code ${code} · <button class="lnk" id="codeReset">Anderen Monitor koppeln</button>`;
   $("conn").textContent="Verbinde …";
-  brokerIndex=0;connectBroker();
+  lastSent=0;connectBroker();
+}
+// Mit allen Brokern gleichzeitig verbinden: gesendet wird über alle, empfangen wird die jeweils
+// erste Kopie (doppelte und ältere Meldungen werden verworfen). So bremst ein langsamer Broker nicht.
+function multiClient(prefix,onConnect,onMessage,onChange){
+  const id=prefix+"-"+code+"-"+Math.random().toString(16).slice(2,8);
+  const cs=BROKERS.map((u,i)=>{
+    const c=mqtt.connect(u,{clientId:id+i,clean:true,keepalive:30,connectTimeout:6000,reconnectPeriod:3000});
+    c.on("connect",()=>{c.subscribe(topic("status"));onConnect(c);onChange()});
+    c.on("message",(t,p)=>onMessage(p.toString()));
+    c.on("offline",onChange);c.on("close",onChange);
+    return c});
+  return{get connected(){return cs.some(c=>c.connected)},
+    publish(t,m){cs.forEach(c=>{if(c.connected)c.publish(t,m)})},
+    end(){cs.forEach(c=>{c.removeAllListeners();c.end(true)})}};
+}
+let lastSent=0,seenNow=new Set();
+function freshStatus(p){
+  let j;try{j=JSON.parse(p)}catch(e){return null}
+  const t=j.sentAt?Date.parse(j.sentAt):0;
+  if(t&&t<lastSent)return null;
+  if(t>lastSent){lastSent=t;seenNow=new Set()}
+  if(seenNow.has(p))return null;
+  seenNow.add(p);return j;
 }
 function connectBroker(){
-  if(client){client.removeAllListeners();client.end(true)}
+  if(client)client.end();
   everConnected=false;
-  const url=BROKERS[brokerIndex], host=new URL(url).hostname;
-  $("conn").textContent="Verbinde über "+host+" …";
-  client=mqtt.connect(url,{clientId:"c3web-"+code+"-"+Math.random().toString(16).slice(2,8),clean:true,keepalive:30,connectTimeout:6000,reconnectPeriod:2000});
-  clearTimeout(brokerTimer);
-  // Klappt die erste Verbindung nicht in 7 s, nächsten Broker probieren
-  brokerTimer=setTimeout(()=>{if(!everConnected){brokerIndex=(brokerIndex+1)%BROKERS.length;connectBroker()}},7000);
-  client.on("connect",()=>{everConnected=true;clearTimeout(brokerTimer);client.subscribe(topic("status"));client.publish(topic("control"),JSON.stringify({ping:true}));checkOnline()});
-  client.on("message",(t,payload)=>{
-    try{const j=JSON.parse(payload.toString());lastSeen=j.sentAt?Date.parse(j.sentAt):Date.now();handleStatus(j);checkOnline()}catch(e){}
-  });
-  client.on("offline",checkOnline);
+  $("conn").textContent="Verbinde …";
+  client=multiClient("c3web",c=>{everConnected=true;c.publish(topic("control"),JSON.stringify({ping:true}))},p=>{
+    const j=freshStatus(p);if(!j)return;
+    try{lastSeen=j.sentAt?Date.parse(j.sentAt):Date.now();handleStatus(j);checkOnline()}catch(e){}
+  },checkOnline);
 }
 function checkOnline(){
   if(!RELAY||!code)return;
-  if(!client||!client.connected){setOnline(false);$("conn").textContent=everConnected?"Verbindung unterbrochen …":"Verbinde über "+new URL(BROKERS[brokerIndex]).hostname+" …";return}
+  if(!client||!client.connected){setOnline(false);$("conn").textContent=everConnected?"Verbindung unterbrochen …":"Verbinde …";return}
   const fresh=Date.now()-lastSeen<20000;
   if(fresh)setOnline(true,monitorName);
   else{setOnline(false);$("conn").textContent=state?"Monitor offline – App am iPad geöffnet?":"Warte auf Monitor "+code+" …"}
@@ -732,7 +749,7 @@ function checkOnline(){
 function showCodeEntry(){$("shCode").classList.add("open");$("codeInfo").style.display="none";$("conn").textContent="Noch nicht gekoppelt";$("codeInput").focus()}
 document.addEventListener("click",e=>{
   if(e.target.id==="codeBtn"){const v=$("codeInput").value.trim();if(v.length>=6){history.replaceState(null,"","?code="+encodeURIComponent(v.toUpperCase()));startRelay(v)}}
-  else if(e.target.id==="codeReset"){store("c3code",null);if(client)client.end(true);client=null;code=null;showCodeEntry()}
+  else if(e.target.id==="codeReset"){store("c3code",null);if(client)client.end();client=null;code=null;showCodeEntry()}
 });
 
 // Nur Querformat: wo der Browser es erlaubt, festhalten (sonst zeigt die Seite einen Hinweis)
