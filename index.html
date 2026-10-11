@@ -9,6 +9,8 @@
 <meta name="apple-mobile-web-app-title" content="FM 112">
 <meta name="theme-color" content="#000000">
 <title>FM 112 Steuerung</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
 <style>
 /* Farben wie am Monitor (MonitorView.swift) */
 :root{--ecg:#33ff59;--spo2:#40d9ff;--co2:#ffe633;--nibp:#f2f2f2;--temp:#ff8cd9;--red:#ff3b30;--yellow:#ffd60a;
@@ -90,6 +92,11 @@ select{font:600 14px -apple-system,system-ui;color:var(--text);background:var(--
 .pmr button:disabled{opacity:.25}
 .pmr.two button{font-size:18px}
 
+/* Hinweis „Als App installieren“ (nur auf der Webseite im Browser) */
+#install{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;display:none;align-items:center;gap:12px;max-width:calc(100vw - 32px);background:#1c1c1e;border:1px solid #333;border-radius:14px;padding:10px 10px 10px 16px;box-shadow:0 10px 30px #000a;font:500 14px/1.35 -apple-system,system-ui;color:var(--text)}
+#install.show{display:flex}
+#install .x{margin:0}
+#instGo{display:none;white-space:nowrap}
 /* Fenster (Rhythmus, Defi, Pacer, Szenarien, Protokoll, Sensoren, Kopplung) */
 .sheet{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:10;padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
 .sheet.open{display:flex}
@@ -203,6 +210,7 @@ textarea.txt{width:100%;resize:vertical;font:15px/1.4 -apple-system,system-ui;mi
 </main>
 
 <div id="toast" role="status"></div>
+<div id="install"><div id="instText"></div><button id="instGo" class="pill">App installieren</button><button class="x" id="instX" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></div>
 
 <!-- Fenster -->
 <div class="sheet" id="shCode"><div class="card">
@@ -755,6 +763,30 @@ if(NATIVE){
   setInterval(checkOnline,2000);
   setInterval(()=>{if(client&&client.connected)client.publish(topic("control"),JSON.stringify({ping:true}))},5000);
 }else{poll();setInterval(poll,1500)}
+
+// ---------- Als App installieren ----------
+(function(){
+  if(NATIVE||!RELAY)return;
+  try{if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}
+  const standalone=window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+  if(standalone||stored("c3installHidden"))return;
+  const el=$("install"),hide=()=>{el.classList.remove("show");store("c3installHidden","1")};
+  $("instX").addEventListener("click",hide);
+  // iPhone und iPad (iPadOS meldet sich als Mac mit Touchscreen): nur über das Teilen-Menü
+  const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  if(ios){
+    $("instText").innerHTML='Als App installieren: oben auf <b>Teilen</b> <svg viewBox="0 0 20 20" style="width:15px;height:15px;vertical-align:-2px;fill:none;stroke:currentColor;stroke-width:1.6"><path d="M10 13V2M6 6l4-4 4 4M4 9v8h12V9"/></svg> tippen, dann <b>„Zum Home-Bildschirm“</b>.';
+    el.classList.add("show");return;
+  }
+  // Chrome, Edge, Samsung Internet: eigener Installieren-Knopf
+  let ev=null;
+  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();ev=e;$("instText").textContent="FM 112 Steuerung als App auf diesem Gerät installieren?";$("instGo").style.display="block";el.classList.add("show")});
+  $("instGo").addEventListener("click",async()=>{if(!ev)return;ev.prompt();try{await ev.userChoice}catch(e){}ev=null;hide()});
+  window.addEventListener("appinstalled",hide);
+  // Kein Angebot vom Browser (z. B. schon einmal abgelehnt): Weg über das Browsermenü zeigen
+  setTimeout(()=>{if(ev||el.classList.contains("show"))return;
+    $("instText").innerHTML='Als App installieren: im Browsermenü (<b>⋮</b> bzw. <b>≡</b>) auf <b>„App installieren“</b> oder <b>„Zum Startbildschirm hinzufügen“</b> tippen.';el.classList.add("show")},4000);
+})();
 </script>
 </body>
 </html>
