@@ -358,7 +358,7 @@ $("leftRail").innerHTML=
  +`<button class="rb" data-tg="hasPulse" style="--c:var(--ecg)">${icon("pulse")}Puls<br>tastbar</button>`
  +`<div class="rb temp" id="tempBox"><button class="lbl" data-tg="tempAttached">TEMP °C</button><span class="v" data-out="temperature" data-unit="" data-step="0.1"></span><div class="pm2">${pm("temperature")}</div></div>`
  +`<button class="rb" data-tg="padsAttached" style="--c:#ff9f0a">${icon("pads")}Pads</button>`
- +`<button class="rb dis" id="vitalsBtn" style="--c:#64d2ff">${icon("vit")}FM Vitals<span class="badge" id="vitCount"></span></button>`;
+ +`<button class="rb" id="vitalsBtn" style="--c:#64d2ff">${icon("vit")}FM Vitals<span class="badge" id="vitCount"></span></button>`;
 SPEC.temperature={min:30,max:43,step:0.1};
 
 $("rightRail").innerHTML=
@@ -578,8 +578,8 @@ function render(){
   $("bpBig").textContent=Math.round(state.nibpSys)+"/"+Math.round(state.nibpDia);
   $("mapSub").textContent="MAD "+Math.round(state.nibpDia+(state.nibpSys-state.nibpDia)/3);
   const vd=state.vitalsDevices||0;
-  $("vitalsBtn").classList.toggle("dis",!vd);$("vitCount").textContent=vd>1?vd:"";
-  if(!vd&&$("shVitals").classList.contains("open"))$("shVitals").classList.remove("open");
+  // FM Vitals immer bedienbar (auch ohne verbundenes Gerät, z. B. um Szenarien vorzubereiten)
+  $("vitCount").textContent=vd>1?vd:"";
   // Lungenbefunde älterer Szenarien auf die heutige Liste abbilden
   const LOLD={rgfeucht:"rasseln",knistern:"rasseln",stridor:"stridor_insp",bronchial:"normal",pleura:"normal"};if(LOLD[state.lungSound])state.lungSound=LOLD[state.lungSound];if(state.heartSound==="leise"||state.heartSound==="reiben")state.heartSound="normal";
   document.querySelectorAll("select[data-key]").forEach(el=>{if(document.activeElement!==el)el.value=state[el.dataset.key]});
@@ -632,7 +632,7 @@ document.addEventListener("click",e=>{
   if(e.target.classList.contains("sheet")||e.target.closest(".x")){closeSheets();return}
   const b=e.target.closest("button");if(!b)return;
   if(b.dataset.open){openSheet(b.dataset.open);return}
-  if(b.id==="vitalsBtn"){if(state&&state.vitalsDevices)openSheet("shVitals");else toast("Verbinde erst ein weiteres Gerät mit FM Vitals über den Monitor, um diese Funktion nutzen zu können.");return}
+  if(b.id==="vitalsBtn"){if(state)openSheet("shVitals");return}
   if(b.dataset.peer){post({connect:b.dataset.peer});return}
   if(b.id==="peerOff"){post({disconnect:true});return}
   if(b.dataset.cat){catIndex=+b.dataset.cat;renderCats();return}
@@ -699,6 +699,11 @@ function startRelay(c){
   $("conn").textContent="Verbinde …";
   brokerIndex=0;connectBroker();
 }
+// Der Monitor ist nicht immer über alle Broker erreichbar. Kommt über den gewählten Broker
+// 12 s lang nichts Neues vom Monitor (die erste, gespeicherte Meldung zählt nicht),
+// wird der nächste Broker probiert, bis der Monitor gefunden ist.
+let liveAt=0,msgCount=0;
+setInterval(()=>{if(client&&client.connected&&code&&Date.now()-liveAt>12000){brokerIndex=(brokerIndex+1)%BROKERS.length;connectBroker()}},2000);
 function connectBroker(){
   if(client){client.removeAllListeners();client.end(true)}
   everConnected=false;
@@ -708,8 +713,9 @@ function connectBroker(){
   clearTimeout(brokerTimer);
   // Klappt die erste Verbindung nicht in 7 s, nächsten Broker probieren
   brokerTimer=setTimeout(()=>{if(!everConnected){brokerIndex=(brokerIndex+1)%BROKERS.length;connectBroker()}},7000);
-  client.on("connect",()=>{everConnected=true;clearTimeout(brokerTimer);client.subscribe(topic("status"));client.publish(topic("control"),JSON.stringify({ping:true}));checkOnline()});
+  client.on("connect",()=>{everConnected=true;clearTimeout(brokerTimer);liveAt=Date.now();msgCount=0;client.subscribe(topic("status"));client.publish(topic("control"),JSON.stringify({ping:true}));checkOnline()});
   client.on("message",(t,payload)=>{
+    msgCount++;if(msgCount>1)liveAt=Date.now();
     try{const j=JSON.parse(payload.toString());lastSeen=j.sentAt?Date.parse(j.sentAt):Date.now();handleStatus(j);checkOnline()}catch(e){}
   });
   client.on("offline",checkOnline);
