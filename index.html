@@ -552,10 +552,14 @@ async function send(){
 }
 const SCN_KEYS=["rhythm","heartRate","hasPulse","arrhythmic","rateMin","rateMax","vesPerMinute","spo2","respRate","etco2","temperature","nibpSys","nibpDia","shockConversion","shockConversionRate","shockConversionAfter","pacerThreshold","pacerMechanicalCapture","bloodGlucose","lungSound","lungSide","heartSound","abdomenSound","pupilRight","pupilLeft","pupilReactRight","pupilReactLeft"];
 let scenarios=[],scenarioJSON="",activeScn=null;
-// Kategorien der Szenarienliste (aufklappbar; offene Kategorien merkt sich das Gerät)
+// Kategorien der Szenarienliste (beim Öffnen alle eingeklappt). Die Zuordnung merkt sich zusätzlich
+// dieses Gerät, damit sie auch mit einer älteren Monitor-App ohne Kategorie-Feld erhalten bleibt.
 const SCN_CATS=[["intern","Internistisch"],["trauma","Trauma"],["rea","Reanimation"],["sonst","Sonstige"]];
-const scnCat=c=>SCN_CATS.some(x=>x[0]===c.category)?c.category:"sonst";
-let openCats=(()=>{try{return JSON.parse(localStorage.getItem("c3openCats"))||["intern","trauma","rea","sonst"]}catch(e){return["intern","trauma","rea","sonst"]}})();
+let scnCatMap=(()=>{try{return JSON.parse(localStorage.getItem("c3scnCats"))||{}}catch(e){return{}}})();
+const okCat=k=>SCN_CATS.some(x=>x[0]===k);
+const scnCat=c=>okCat(c.category)?c.category:okCat(scnCatMap[c.id])?scnCatMap[c.id]:"sonst";
+function setScnCat(id,k){scnCatMap[id]=k;try{localStorage.setItem("c3scnCats",JSON.stringify(scnCatMap))}catch(e){}}
+let openCats=[];
 const catOptions=sel=>SCN_CATS.map(([k,n])=>`<option value="${k}"${k===sel?" selected":""}>${n}</option>`).join("");
 async function sendScenario(msg){
   if(NATIVE){post(msg);return}
@@ -567,7 +571,7 @@ async function sendScenario(msg){
 function renderScenarios(list){
   const j=JSON.stringify(list||[])+activeScn+openCats;if(j===scenarioJSON)return;scenarioJSON=j;scenarios=list||[];
   // Beim zuletzt geladenen Szenario: Knopf zum Überschreiben und Auswahl der Kategorie
-  const row=c=>`<div class="r${c.id===activeScn?" act":""}"><button class="sc" data-load="${esc(c.id)}">${esc(c.name)}<small>${esc(c.note||((R[c.rhythm]||{name:c.rhythm}).name+", HF "+Math.round(c.heartRate)))}</small></button>${c.id===activeScn?`<select class="catsel mini" data-cat="${esc(c.id)}" aria-label="Kategorie">${catOptions(scnCat(c))}</select><button class="pm upd" data-upd="${esc(c.id)}" aria-label="Änderungen speichern">💾</button>`:""}<button class="pm del" data-del="${esc(c.id)}" aria-label="Löschen">🗑</button></div>`;
+  const row=c=>`<div class="r${c.id===activeScn?" act":""}"><button class="sc" data-load="${esc(c.id)}">${esc(c.name)}<small>${esc(c.note||((R[c.rhythm]||{name:c.rhythm}).name+", HF "+Math.round(c.heartRate)))}</small></button>${c.id===activeScn?`<select class="catsel mini" data-scncat="${esc(c.id)}" aria-label="Kategorie">${catOptions(scnCat(c))}</select><button class="pm upd" data-upd="${esc(c.id)}" aria-label="Änderungen speichern">💾</button>`:""}<button class="pm del" data-del="${esc(c.id)}" aria-label="Löschen">🗑</button></div>`;
   $("scenarios").innerHTML=scenarios.length?SCN_CATS.map(([k,n])=>{const list=scenarios.filter(c=>scnCat(c)===k),open=openCats.includes(k);
     return `<button class="scat${open?" open":""}" data-scat="${k}"><span class="arr">▶</span>${n}<span class="cnt">${list.length}</span></button>`
       +(open?(list.length?list.map(row).join(""):`<div class="ev"><small>Keine Szenarien in dieser Kategorie.</small></div>`):"")}).join("")
@@ -626,7 +630,7 @@ function render(){
 function renderBar(){$("sendBtn").style.display=live?"none":"";$("sendBtn").disabled=!dirty;$("sendBtn").textContent=dirty?"Senden":"Gesendet ✓"}
 function setOnline(ok,name){online=ok;$("dot").style.background=ok?"var(--ecg)":"var(--red)";$("dot").style.color=ok?"var(--ecg)":"var(--red)";$("conn").textContent=ok?"Verbunden mit "+name:"Keine Verbindung zum Monitor"}
 
-function openSheet(id){if(id==="shRhythm"&&state){const i=CATS.findIndex(c=>c[1].includes(state.rhythm));catIndex=i<0?0:i;renderCats()}$(id).classList.add("open")}
+function openSheet(id){if(id==="shRhythm"&&state){const i=CATS.findIndex(c=>c[1].includes(state.rhythm));catIndex=i<0?0:i;renderCats()}if(id==="shScn"){openCats=[];renderScenarios(scenarios)}$(id).classList.add("open")}
 function closeSheets(){document.querySelectorAll(".sheet.open").forEach(s=>{if(s.id!=="shCode")s.classList.remove("open")})}
 
 document.addEventListener("change",e=>{
@@ -671,16 +675,15 @@ document.addEventListener("click",e=>{
     SCN_KEYS.forEach(k=>{if(VK.includes(k)){if(c[k]!==undefined&&c[k]!==null)state[k]=c[k]}else state[k]=c[k]===undefined?null:c[k]});
     if(typeof c.pagerText==="string"){state.pagerText=c.pagerText;$("pagerDraft").value=c.pagerText}state.hasPulse=c.hasPulse&&R[c.rhythm].pulse;state.shockConversionAfter=c.shockConversionAfter||1;state.arrhythmic=!!c.arrhythmic;state.rateMin=c.rateMin||60;state.rateMax=c.rateMax||100;state.vesPerMinute=c.vesPerMinute||6;state.cprArtifact=false;state.motionArtifact=false;
     activeScn=c.id;renderScenarios(scenarios);
-    changed();if(!live)send();closeSheets()}
+    changed();if(!live)send();toast(`„${c.name}“ geladen ✓`)}
   else if(b.dataset.upd){const old=scenarios.find(x=>x.id===b.dataset.upd);if(!old)return;
     if(!confirm(`„${old.name}“ mit den aktuellen Einstellungen überschreiben?`))return;
     const c={id:old.id,name:old.name,note:old.note||"",category:scnCat(old)};SCN_KEYS.forEach(k=>c[k]=state[k]);c.pagerText=$("pagerDraft").value.trim();
     sendScenario({saveScenario:c});toast(`„${old.name}“ gespeichert ✓`)}
-  else if(b.dataset.scat){const k=b.dataset.scat;openCats=openCats.includes(k)?openCats.filter(x=>x!==k):[...openCats,k];
-    try{localStorage.setItem("c3openCats",JSON.stringify(openCats))}catch(e){}renderScenarios(scenarios)}
+  else if(b.dataset.scat){const k=b.dataset.scat;openCats=openCats.includes(k)?openCats.filter(x=>x!==k):[...openCats,k];renderScenarios(scenarios)}
   else if(b.dataset.del){const c=scenarios.find(x=>x.id===b.dataset.del);if(c&&confirm(`Szenario „${c.name}“ löschen?`))sendScenario({deleteScenario:c.id})}
   else if(b.id==="scnSave"){const name=$("scnName").value.trim();if(!name){$("scnName").focus();return}
-    const c={id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),name,note:$("scnNote").value.trim(),category:$("scnCat").value};SCN_KEYS.forEach(k=>c[k]=state[k]);c.pagerText=$("pagerDraft").value.trim();
+    const c={id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),name,note:$("scnNote").value.trim(),category:$("scnCat").value};setScnCat(c.id,c.category);SCN_KEYS.forEach(k=>c[k]=state[k]);c.pagerText=$("pagerDraft").value.trim();
     if(scenarios.some(x=>x.name===name)&&!confirm(`„${name}“ gibt es schon. Überschreiben?`))return;
     sendScenario({saveScenario:c});$("scnName").value="";$("scnNote").value="";b.textContent="Gespeichert ✓";setTimeout(()=>b.textContent="Aktuelle Einstellungen als Szenario speichern",1500)}
   else if(b.id==="pagerFire"){const t=$("pagerDraft").value.trim();if(!t){$("pagerDraft").focus();toast("Bitte zuerst die Einsatzmeldung eingeben.");return}
@@ -692,9 +695,10 @@ document.addEventListener("click",e=>{
 });
 document.addEventListener("change",e=>{const el=e.target;if(el.tagName==="SELECT"&&el.dataset.key&&state)setValue(el.dataset.key,el.value)});
 // Kategorie eines gespeicherten Szenarios ändern (Werte bleiben, wie sie gespeichert sind)
-document.addEventListener("change",e=>{const el=e.target;if(!el.dataset||!el.dataset.cat)return;
-  const old=scenarios.find(x=>x.id===el.dataset.cat);if(!old)return;
-  const k=el.value;if(!openCats.includes(k)){openCats=[...openCats,k];try{localStorage.setItem("c3openCats",JSON.stringify(openCats))}catch(e){}}
+document.addEventListener("change",e=>{const el=e.target;if(!el.dataset||!el.dataset.scncat)return;
+  const old=scenarios.find(x=>x.id===el.dataset.scncat);if(!old)return;
+  const k=el.value;setScnCat(old.id,k);old.category=k;if(!openCats.includes(k))openCats=[...openCats,k];
+  scenarioJSON="";renderScenarios(scenarios);
   sendScenario({saveScenario:{...old,category:k}});toast(`„${old.name}“ → ${SCN_CATS.find(x=>x[0]===k)[1]}`)});
 $("scnCat").innerHTML=catOptions("sonst");
 
