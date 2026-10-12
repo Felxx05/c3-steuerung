@@ -125,6 +125,8 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
 .txt{flex:1;font:inherit;color:var(--text);background:transparent;border:0;outline:0;padding:0;min-width:0}
 .pill{width:100%;border:0;border-radius:8px;background:var(--ecg);color:#000;font:700 15px -apple-system,system-ui;padding:11px}
 .pm.del{font-size:16px;background:#3a1414}
+.pm.upd{font-size:16px;background:#14304a;margin-right:6px}
+.r.act{box-shadow:inset 3px 0 0 var(--ecg)}
 .pill.red{background:var(--red);color:#fff}
 textarea.txt{width:100%;resize:vertical;font:15px/1.4 -apple-system,system-ui;min-height:110px;-webkit-user-select:text;user-select:text}
 .r.stack select{background:#1e1e1e;color:var(--text);border:1px solid #333;border-radius:8px;font:15px -apple-system,system-ui}
@@ -542,7 +544,7 @@ async function send(){
   catch(e){setOnline(false)}
 }
 const SCN_KEYS=["rhythm","heartRate","hasPulse","arrhythmic","rateMin","rateMax","vesPerMinute","spo2","respRate","etco2","temperature","nibpSys","nibpDia","shockConversion","shockConversionRate","shockConversionAfter","pacerThreshold","pacerMechanicalCapture","bloodGlucose","lungSound","lungSide","heartSound","abdomenSound","pupilRight","pupilLeft","pupilReactRight","pupilReactLeft"];
-let scenarios=[],scenarioJSON="";
+let scenarios=[],scenarioJSON="",activeScn=null;
 async function sendScenario(msg){
   if(NATIVE){post(msg);return}
   if(RELAY){if(client&&client.connected)client.publish(topic("control"),JSON.stringify(msg));return}
@@ -551,8 +553,9 @@ async function sendScenario(msg){
   catch(e){setOnline(false)}
 }
 function renderScenarios(list){
-  const j=JSON.stringify(list||[]);if(j===scenarioJSON)return;scenarioJSON=j;scenarios=list||[];
-  $("scenarios").innerHTML=scenarios.length?scenarios.map(c=>`<div class="r"><button class="sc" data-load="${esc(c.id)}">${esc(c.name)}<small>${esc(c.note||((R[c.rhythm]||{name:c.rhythm}).name+", HF "+Math.round(c.heartRate)))}</small></button><button class="pm del" data-del="${esc(c.id)}" aria-label="Löschen">🗑</button></div>`).join("")
+  const j=JSON.stringify(list||[])+activeScn;if(j===scenarioJSON)return;scenarioJSON=j;scenarios=list||[];
+  // Beim zuletzt geladenen Szenario: Knopf zum Überschreiben mit den aktuellen Einstellungen
+  $("scenarios").innerHTML=scenarios.length?scenarios.map(c=>`<div class="r${c.id===activeScn?" act":""}"><button class="sc" data-load="${esc(c.id)}">${esc(c.name)}<small>${esc(c.note||((R[c.rhythm]||{name:c.rhythm}).name+", HF "+Math.round(c.heartRate)))}</small></button>${c.id===activeScn?`<button class="pm upd" data-upd="${esc(c.id)}" aria-label="Änderungen speichern">💾</button>`:""}<button class="pm del" data-del="${esc(c.id)}" aria-label="Löschen">🗑</button></div>`).join("")
     :`<div class="ev"><small>Noch keine Szenarien gespeichert.</small></div>`;
 }
 function fmt(v,step){return v===null||v===undefined?"--":step<1?Number(v).toFixed(1):String(Math.round(v))}
@@ -652,7 +655,12 @@ document.addEventListener("click",e=>{
     const VK=["bloodGlucose","lungSound","lungSide","heartSound","abdomenSound","pupilRight","pupilLeft","pupilReactRight","pupilReactLeft"];
     SCN_KEYS.forEach(k=>{if(VK.includes(k)){if(c[k]!==undefined&&c[k]!==null)state[k]=c[k]}else state[k]=c[k]===undefined?null:c[k]});
     if(typeof c.pagerText==="string"){state.pagerText=c.pagerText;$("pagerDraft").value=c.pagerText}state.hasPulse=c.hasPulse&&R[c.rhythm].pulse;state.shockConversionAfter=c.shockConversionAfter||1;state.arrhythmic=!!c.arrhythmic;state.rateMin=c.rateMin||60;state.rateMax=c.rateMax||100;state.vesPerMinute=c.vesPerMinute||6;state.cprArtifact=false;state.motionArtifact=false;
+    activeScn=c.id;renderScenarios(scenarios);
     changed();if(!live)send();closeSheets()}
+  else if(b.dataset.upd){const old=scenarios.find(x=>x.id===b.dataset.upd);if(!old)return;
+    if(!confirm(`„${old.name}“ mit den aktuellen Einstellungen überschreiben?`))return;
+    const c={id:old.id,name:old.name,note:old.note||""};SCN_KEYS.forEach(k=>c[k]=state[k]);c.pagerText=$("pagerDraft").value.trim();
+    sendScenario({saveScenario:c});toast(`„${old.name}“ gespeichert ✓`)}
   else if(b.dataset.del){const c=scenarios.find(x=>x.id===b.dataset.del);if(c&&confirm(`Szenario „${c.name}“ löschen?`))sendScenario({deleteScenario:c.id})}
   else if(b.id==="scnSave"){const name=$("scnName").value.trim();if(!name){$("scnName").focus();return}
     const c={id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),name,note:$("scnNote").value.trim()};SCN_KEYS.forEach(k=>c[k]=state[k]);c.pagerText=$("pagerDraft").value.trim();
