@@ -141,6 +141,10 @@ input[type=range]{flex:1;accent-color:var(--ecg);height:30px;min-width:0}
 .sc{display:block;flex:1;text-align:left;border:0;background:transparent;color:var(--text);padding:0}
 .sc small{display:block;color:var(--sub);font-size:12px;margin-top:2px}
 .txt{flex:1;font:inherit;color:var(--text);background:transparent;border:0;outline:0;padding:0;min-width:0}
+.solog{margin-top:10px}.pill.grey{background:#2a2a2a;color:var(--text)}
+.soloBox{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px}
+#soloQR{width:220px;height:220px;background:#fff;border-radius:10px;overflow:hidden}#soloQR svg{width:100%;height:100%;display:block}
+#soloCode{font:600 26px ui-monospace,monospace;letter-spacing:3px}#soloUrl{color:var(--sub);font-size:12px}
 .pill{width:100%;border:0;border-radius:8px;background:var(--ecg);color:#000;font:700 15px -apple-system,system-ui;padding:11px}
 .pm.del{font-size:16px;background:#3a1414}
 .pm.upd{font-size:16px;background:#14304a;margin-right:6px}
@@ -249,12 +253,19 @@ textarea.txt{width:100%;resize:vertical;font:15px/1.4 -apple-system,system-ui;mi
     <div class="g"><div class="r"><input id="codeInput" placeholder="Kopplungscode" autocapitalize="characters" autocomplete="off" maxlength="8"
       style="font:600 20px ui-monospace,monospace;letter-spacing:2px;border:0;background:transparent;color:var(--text);width:100%;text-transform:uppercase;outline:0">
       <button class="btn" id="codeBtn">Koppeln</button></div></div>
+    <div class="g solog"><div class="r"><button class="pill grey" data-solo>Ohne Monitor starten</button></div></div>
   </div>
 </div></div>
 
 <div class="sheet" id="shConnect"><div class="card">
   <header>Mit Monitor verbinden<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
-  <div class="cb"><div class="g" id="peers"></div></div>
+  <div class="cb"><div class="g" id="peers"></div>
+    <div class="g solog"><div class="r"><button class="pill grey" data-solo>Ohne Monitor starten</button></div></div></div>
+</div></div>
+
+<div class="sheet" id="shSolo"><div class="card">
+  <header>FM Vitals koppeln<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
+  <div class="cb"><div class="g soloBox"><div id="soloQR"></div><b id="soloCode"></b><small id="soloUrl"></small></div></div>
 </div></div>
 
 <div class="sheet" id="shSensors"><div class="card">
@@ -588,9 +599,11 @@ const NATIVE=!!(window.webkit&&window.webkit.messageHandlers&&window.webkit.mess
 function post(o){window.webkit.messageHandlers.c3.postMessage(JSON.stringify(o))}
 const RELAY=!NATIVE&&location.protocol==="https:";
 let code=null, client=null, lastSeen=0, monitorName="";
+let solo=(()=>{try{return localStorage.getItem("c3solo")==="1"}catch(e){return false}})();
 function topic(t){return "c3sim/"+code+"/"+t}
 async function send(){
   if(!state)return;
+  if(solo){soloPublish();return}
   if(NATIVE){post({state});dirty=false;renderBar();return}
   if(RELAY){
     if(!client||!client.connected)return;
@@ -611,6 +624,7 @@ function setScnCat(id,k){scnCatMap[id]=k;try{localStorage.setItem("c3scnCats",JS
 let openCats=[];
 const catOptions=sel=>SCN_CATS.map(([k,n])=>`<option value="${k}"${k===sel?" selected":""}>${n}</option>`).join("");
 async function sendScenario(msg){
+  if(solo){toast("Szenarien speichern und löschen geht nur mit Monitor.");return}
   if(NATIVE){post(msg);return}
   if(RELAY){if(client&&client.connected)client.publish(topic("control"),JSON.stringify(msg));return}
   try{if(msg.saveScenario)await fetch("/api/scenario",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(msg.saveScenario)});
@@ -681,7 +695,7 @@ function render(){
 function renderBar(){$("sendBtn").style.display=live?"none":"";$("sendBtn").disabled=!dirty;$("sendBtn").textContent=dirty?"Senden":"Gesendet ✓"}
 function setOnline(ok,name){online=ok;$("dot").style.background=ok?"var(--ecg)":"var(--red)";$("dot").style.color=ok?"var(--ecg)":"var(--red)";$("conn").textContent=ok?"Verbunden mit "+name:"Keine Verbindung zum Monitor"}
 
-function openSheet(id){closeFly();if(id==="shMedia")setTimeout(renderMedia,0);if(id==="shRhythm"&&state){const i=CATS.findIndex(c=>c[1].includes(state.rhythm));catIndex=i<0?0:i;renderCats()}if(id==="shScn"){openCats=[];renderScenarios(scenarios)}$(id).classList.add("open")}
+function openSheet(id){closeFly();if(id==="shSolo")setTimeout(renderSoloQR,0);if(id==="shMedia")setTimeout(renderMedia,0);if(id==="shRhythm"&&state){const i=CATS.findIndex(c=>c[1].includes(state.rhythm));catIndex=i<0?0:i;renderCats()}if(id==="shScn"){openCats=[];renderScenarios(scenarios)}$(id).classList.add("open")}
 function closeSheets(){document.querySelectorAll(".sheet.open").forEach(s=>{if(s.id!=="shCode")s.classList.remove("open")})}
 
 document.addEventListener("change",e=>{
@@ -854,6 +868,7 @@ function handleStatus(j){
   const monitorChanged=lastRevision!==null&&j.revision!==undefined&&j.revision!==lastRevision;
   if(j.revision!==undefined)lastRevision=j.revision;
   renderScenarios(j.scenarios);
+  if(Array.isArray(j.scenarios)&&j.scenarios.length)store("c3scnCache",JSON.stringify(j.scenarios));
   // Verbundene FM-Vitals-Geräte meldet nur der Monitor – immer übernehmen
   if(state&&j.state&&(j.state.vitalsDevices||0)!==(state.vitalsDevices||0)){state.vitalsDevices=j.state.vitalsDevices||0;render()}
   if(!state||powerChanged||monitorChanged||(live&&!dirty&&!drag&&Date.now()-lastLocalChange>3000)){state=j.state;if(state.shockConversion===undefined)state.shockConversion=null;dirty=false;renderBar();render()}
@@ -894,8 +909,9 @@ function connectBroker(){
   clearTimeout(brokerTimer);
   // Klappt die erste Verbindung nicht in 7 s, nächsten Broker probieren
   brokerTimer=setTimeout(()=>{if(!everConnected){brokerIndex=(brokerIndex+1)%BROKERS.length;connectBroker()}},7000);
-  client.on("connect",()=>{everConnected=true;clearTimeout(brokerTimer);liveAt=Date.now();msgCount=0;client.subscribe(topic("status"));client.subscribe(topic("prints"));client.publish(topic("control"),JSON.stringify({ping:true}));checkOnline()});
+  client.on("connect",()=>{everConnected=true;clearTimeout(brokerTimer);liveAt=Date.now();msgCount=0;client.subscribe(topic("status"));client.subscribe(topic("prints"));client.publish(topic("control"),JSON.stringify({ping:true}));if(solo){client.subscribe(topic("vitals"));soloPublish()}checkOnline()});
   client.on("message",(t,payload)=>{
+    if(solo){soloMessage(t,payload);return}
     // Ausdrucke kommen auf eigenem Thema und zählen nicht als Lebenszeichen des Monitors
     if(t===topic("prints")){try{setPrints(JSON.parse(payload.toString()).prints)}catch(e){}return}
     msgCount++;if(msgCount>1)liveAt=Date.now();
@@ -904,6 +920,7 @@ function connectBroker(){
   client.on("offline",checkOnline);
 }
 function checkOnline(){
+  if(solo){soloOnline();return}
   if(!RELAY||!code)return;
   if(!client||!client.connected){setOnline(false);$("conn").textContent=everConnected?"Verbindung unterbrochen …":"Verbinde über "+new URL(BROKERS[brokerIndex]).hostname+" …";return}
   const fresh=Date.now()-lastSeen<20000;
@@ -930,7 +947,66 @@ function renderPeers(j){
   if(wasConnected===false&&j.connected)$("shConnect").classList.remove("open");
   wasConnected=!!j.connected;
 }
-window.c3Status=j=>{setOnline(!!j.connected,j.monitorName);renderPeers(j);handleStatus(j);if(j.prints)setPrints(j.prints)};
+window.c3Status=j=>{if(solo)return;setOnline(!!j.connected,j.monitorName);renderPeers(j);handleStatus(j);if(j.prints)setPrints(j.prints)};
+
+// ---------- Ohne Monitor: die Steuerung übernimmt selbst die Rolle des Monitors für FM Vitals ----------
+// Sie meldet ihren Stand wie ein Monitor auf c3sim/<Code>/status (eigener Code), FM Vitals koppelt sich damit.
+const SOLO_DEF={rhythm:"sinus",heartRate:75,hasPulse:true,arrhythmic:false,rateMin:60,rateMax:100,vesPerMinute:6,cprArtifact:false,motionArtifact:false,
+  spo2:98,respRate:14,etco2:38,temperature:36.8,nibpSys:125,nibpDia:80,ecgAttached:true,ecg12Attached:false,padsAttached:false,spo2Attached:true,
+  nibpAttached:true,co2Attached:true,tempAttached:true,shockConversion:null,shockConversionRate:80,shockConversionAfter:1,monitorOn:true,
+  pacerThreshold:60,pacerMechanicalCapture:true,transitionSeconds:0,chestPlacement:"standard",eventsClearedAt:0,...VDEF};
+let soloRev=0;const soloDevs={};
+const VITALS_URL="https://felxx05.github.io/c3-vitals/";
+function soloCount(){return Object.values(soloDevs).filter(t=>Date.now()-t<15000).length}
+function soloPublish(){
+  if(!state)return;
+  store("c3soloState",JSON.stringify(state));dirty=false;renderBar();
+  if(!client||!client.connected)return;
+  client.publish(topic("status"),JSON.stringify({monitorName:"Steuerung",sentAt:new Date().toISOString(),revision:++soloRev,state,events:[],scenarios:[]}),{retain:true});
+}
+function soloMessage(t,payload){
+  msgCount++;if(msgCount>1)liveAt=Date.now();
+  if(t===topic("vitals")){try{const v=JSON.parse(payload.toString());if(v.id)soloDevs[v.id]=Date.now()}catch(e){}}
+  soloOnline();
+}
+function soloOnline(){
+  const ok=!!(client&&client.connected),n=soloCount();
+  if(state&&(state.vitalsDevices||0)!==n){state.vitalsDevices=n;render()}
+  online=ok;$("dot").style.background=$("dot").style.color=ok?"var(--ecg)":"var(--red)";
+  $("conn").textContent=!ok?"Verbinde …":n?"Ohne Monitor · "+n+" FM Vitals verbunden":"Ohne Monitor · warte auf FM Vitals";
+}
+function withMqtt(cb){
+  if(window.mqtt)return cb();
+  const sc=document.createElement("script");sc.src="https://felxx05.github.io/c3-steuerung/mqtt.min.js";sc.onload=cb;
+  sc.onerror=()=>{$("conn").textContent="Keine Internetverbindung";setTimeout(()=>withMqtt(cb),5000);sc.remove()};document.head.appendChild(sc);
+}
+function startSolo(){
+  solo=true;store("c3solo","1");
+  code=stored("c3soloCode");
+  if(!code){const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";code="";for(let i=0;i<8;i++)code+=A[Math.floor(Math.random()*A.length)];store("c3soloCode",code)}
+  let saved=null;try{saved=JSON.parse(stored("c3soloState"))}catch(e){}
+  state={...SOLO_DEF,...(saved||{}),vitalsDevices:0};
+  try{renderScenarios(JSON.parse(stored("c3scnCache"))||[])}catch(e){}
+  $("shCode").classList.remove("open");$("shConnect").classList.remove("open");
+  $("codeInfo").style.display="block";
+  $("codeInfo").innerHTML=`Code ${code} · <button class="lnk" data-open="shSolo">FM Vitals koppeln</button> · <button class="lnk" id="soloEnd">Mit Monitor verbinden</button>`;
+  renderBar();render();soloOnline();
+  withMqtt(()=>{brokerIndex=0;connectBroker()});
+  setInterval(()=>{soloPublish();soloOnline()},5000);
+}
+function renderSoloQR(){
+  const url=VITALS_URL+"?code="+code;$("soloCode").textContent=code;$("soloUrl").textContent=url.replace("https://","");
+  const draw=()=>{const q=qrcode(0,"M");q.addData(url);q.make();$("soloQR").innerHTML=q.createSvgTag({cellSize:6,margin:3,scalable:true})};
+  if(window.qrcode)return draw();
+  const sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js";sc.onload=draw;document.head.appendChild(sc);
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.solo!==undefined){startSolo();setTimeout(()=>openSheet("shSolo"),50)}
+  else if(b.id==="soloEnd"){if(!confirm("„Ohne Monitor“ beenden und wieder mit einem Monitor verbinden?"))return;
+    if(client&&client.connected)client.publish(topic("status"),"",{retain:true});
+    store("c3solo",null);setTimeout(()=>{if(NATIVE)location.reload();else location.href=location.pathname},300)}
+});
 
 renderCats();
 renderBar();
@@ -938,12 +1014,13 @@ if(NATIVE){
   $("codeInfo").style.display="block";
   $("codeInfo").innerHTML=`<button class="lnk" data-open="shConnect">Verbindung</button>`;
   post({ready:true});
+  if(solo)startSolo();
 }else if(RELAY){
   const c=new URLSearchParams(location.search).get("code")||stored("c3code");
-  if(c)startRelay(c);else showCodeEntry();
+  if(solo)startSolo();else if(c)startRelay(c);else showCodeEntry();
   setInterval(checkOnline,2000);
   setInterval(()=>{if(client&&client.connected)client.publish(topic("control"),JSON.stringify({ping:true}))},5000);
-}else{poll();setInterval(poll,1500);pollPrints();setInterval(pollPrints,4000)}
+}else if(solo)startSolo();else{poll();setInterval(poll,1500);pollPrints();setInterval(pollPrints,4000)}
 </script>
 </body>
 </html>
