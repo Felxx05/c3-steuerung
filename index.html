@@ -464,7 +464,7 @@ $("cols").innerHTML=
      <div class="cur"><b id="bpBig">--</b></div>
      <div class="slot sub" id="mapSub"></div>
      <div class="slot"></div>
-     <svg class="wave" viewBox="0 0 120 36" preserveAspectRatio="none" style="visibility:hidden"><path/></svg>
+     <svg class="wave" id="wNibp" viewBox="0 0 120 36" preserveAspectRatio="none"><path/></svg>
      <div class="sliders two">${vslider("nibpSys",0,280,1,"SYS")}${vslider("nibpDia",0,200,1,"DIA")}</div>
      <div class="pmr two">${pm("nibpSys")}${pm("nibpDia")}</div>
     </div></div>`
@@ -562,6 +562,7 @@ function pathOf(f,W,H,T,lo,hi){let d="";const N=W*5;for(let i=0;i<=N;i++){const 
 const ecgPath=(id,W,H)=>pathOf(ecgModel(id),W,H,3,-.6,1.25);
 const plethPath=on=>pathOf(t=>{if(!on)return 0;let y=0;for(let c=.1;c<3.4;c+=.8)y+=gs(t,c+.12,.09,1)+gs(t,c+.34,.06,.28);return y},120,36,3,-.05,1.1);
 const co2Path=on=>pathOf(t=>{if(!on)return 0;const x=t%2;return x<.4?0:x<.55?(x-.4)/.15*.9:x<1.35?.9+(x-.55)*.12:x<1.45?(1.45-x)/.1*1.0:0},120,36,4,-.05,1.05);
+const nibpPath=on=>pathOf(t=>{if(!on)return 0;if(t<.5)return t/.5;if(t<3.5){const x=(t-.5)/3;return 1-.85*x+.09*Math.exp(-(((x-.45)/.22)**2))*Math.sin(2*Math.PI*(t-.5)/.27)}return Math.max(0,.15-(t-3.5)*.6)},120,36,4,-.05,1.1);
 const respPath=on=>pathOf(t=>on?Math.sin(2*Math.PI*t/2):0,120,36,4,-1.1,1.1);
 
 let catIndex=0, waveKey="";
@@ -570,12 +571,13 @@ function renderCats(){
   $("tiles").innerHTML=CATS[catIndex][1].map(id=>`<button class="tile${state&&state.rhythm===id?" on":""}" data-rhythm="${id}"><svg viewBox="0 0 150 40" preserveAspectRatio="none"><path d="${ecgPath(id,150,40)}"/></svg><span>${R[id].name}</span><small>${R[id].usesRate?"HF "+R[id].rate+"/min":"keine Frequenz"} · ${R[id].pulse?"mit Puls":"pulslos"}</small></button>`).join("");
 }
 function renderWaves(){
-  const pulse=state.hasPulse&&R[state.rhythm].pulse, k=[state.rhythm,pulse,state.etco2>0,state.respRate>0].join();
+  const pulse=state.hasPulse&&R[state.rhythm].pulse, k=[state.rhythm,pulse,state.etco2>0,state.respRate>0,state.nibpSys>0].join();
   if(k===waveKey)return;waveKey=k;
   $("wEcg").firstChild.setAttribute("d",ecgPath(state.rhythm,120,36));
   $("wPleth").firstChild.setAttribute("d",plethPath(pulse));
   $("wCo2").firstChild.setAttribute("d",co2Path(state.etco2>0&&state.respRate>0));
   $("wResp").firstChild.setAttribute("d",respPath(state.respRate>0));
+  $("wNibp").firstChild.setAttribute("d",nibpPath(state.nibpSys>0));
 }
 
 function setValue(key,v){
