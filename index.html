@@ -59,6 +59,8 @@ select{font:600 14px -apple-system,system-ui;color:var(--text);background:var(--
 #fly{position:fixed;z-index:20;width:min(360px,calc(100vw - var(--rail) - 40px));background:#181818;border:1px solid #3a3a3a;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.8);padding:12px 14px;
  opacity:0;transform:translateX(-14px);pointer-events:none;transition:opacity .16s,transform .16s}
 #fly.open{opacity:1;transform:none;pointer-events:auto}
+#fly.wide{width:min(460px,calc(100vw - var(--rail) - 40px));max-height:calc(100dvh - 70px);overflow-y:auto;transform:translateX(14px)}
+#fly.wide.open{transform:none}#fly.wide .cb{padding:8px 0 0}
 #fly .fh{display:flex;align-items:center;justify-content:space-between;font:700 15px -apple-system,system-ui;color:var(--c)}
 #fly .fv{font:700 44px/1.1 -apple-system,system-ui;font-variant-numeric:tabular-nums;text-align:center;color:var(--c);margin:6px 0 2px}
 #fly .fv small{font-size:15px;color:var(--sub);margin-left:4px}
@@ -91,7 +93,7 @@ select{font:600 14px -apple-system,system-ui;color:var(--text);background:var(--
 .sub{font-size:12px;color:var(--sub);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rname{border:1px solid var(--line);background:#1b1b1b;border-radius:6px;color:var(--c);font-size:13px;font-weight:600;padding:0 6px;height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rname::after{content:" ▾";color:var(--sub)}
-.wave{width:100%;flex:none;height:var(--waveH);stroke:var(--c);fill:none;stroke-width:1.6;stroke-linejoin:round;background:#0a0a0a;border-radius:4px}
+.wave{width:100%;flex:none;height:var(--waveH);stroke:var(--c);fill:none;stroke-width:1.6;stroke-linejoin:round}
 .sliders{flex:1;display:flex;justify-content:center;gap:4px;min-height:70px}
 .sliders.two .vs{max-width:none}
 #hrBox{flex:1;display:flex;flex-direction:column;min-height:70px}#hrBox>.sliders{flex:1}
@@ -385,7 +387,7 @@ const CATS=[["Sinus & VES",["sinus","sinusBrady","sinusTachy","sinusVES","vesBig
  ["Ischämie",["stemi","stemiAnterior","stemiLateral","stemiAnterolateral","stemiRight","stemiPosterior","nstemi"]],["Leitungsstörung",["rbbb","lbbb","wpw"]],
  ["Tachykardie",["afib","afibLBBB","aflutter","svt","vt"]],["Bradykardie & AV-Block",["avBlock1","avBlock2Wenckebach","avBlock2Mobitz","avBlock3","pacemaker","aivr","ventricularEscape"]],
  ["Reanimation",["vf","pvt","polyVT","torsade","pea","asystole"]],["Sonstige",["hyperkalemia","pulmonaryEmbolism","pericarditis"]]];
-const PLACES=[["standard","V4–V6"],["right","V3R–V6R"],["posterior","V7–V9"]];
+const PLACES=[["standard","V4–V6"],["right","Rechts"],["posterior","V7–V9"]];
 
 let state=null, live=true, dirty=false, lastLocalChange=0, sendTimer=null, online=false;
 const $=id=>document.getElementById(id);
@@ -425,12 +427,12 @@ $("leftRail").innerHTML=
 SPEC.temperature={min:30,max:43,step:0.1};SPEC.bloodGlucose={min:1,max:33.3,step:0.1};
 
 $("rightRail").innerHTML=
-  `<button class="rb" data-open="shDefi">${icon("defi")}Defi</button>`
- +`<button class="rb" data-open="shPacer" id="pacerRail" style="--c:#ff9f0a">${icon("pacer")}Pacer</button>`
- +`<button class="rb" data-open="shScn">${icon("scn")}Szenarien</button>`
- +`<button class="rb" data-open="shEvents">${icon("log")}Protokoll<span class="badge" id="evCount"></span></button>`
+  `<button class="rb" data-open="shScn">${icon("scn")}Szenarien</button>`
+ +`<button class="rb" data-fly="defi">${icon("defi")}Defi</button>`
+ +`<button class="rb" data-fly="pacer" id="pacerRail" style="--c:#ff9f0a">${icon("pacer")}Pacer</button>`
  +`<button class="rb" data-open="shPager" id="pagerRail" style="--c:#ff9f0a">${icon("pager")}Melder<br>&amp; CO</button>`
  +`<button class="rb" data-open="shMedia">${icon("media")}Medien<span class="badge" id="mediaCount"></span></button>`
+ +`<button class="rb" data-open="shEvents">${icon("log")}Protokoll<span class="badge" id="evCount"></span></button>`
  +`<div class="rb liveSw"><input type="checkbox" class="sw" id="live" checked>Live senden</div>`
  +`<button class="rb send" id="sendBtn">Senden</button>`;
 
@@ -461,7 +463,7 @@ $("cols").innerHTML=
     <div class="body">
      <div class="cur"><b id="bpBig">--</b></div>
      <div class="slot sub" id="mapSub"></div>
-     <div class="slot sub">Erscheint nach der Messung</div>
+     <div class="slot"></div>
      <svg class="wave" viewBox="0 0 120 36" preserveAspectRatio="none" style="visibility:hidden"><path/></svg>
      <div class="sliders two">${vslider("nibpSys",0,280,1,"SYS")}${vslider("nibpDia",0,200,1,"DIA")}</div>
      <div class="pmr two">${pm("nibpSys")}${pm("nibpDia")}</div>
@@ -765,8 +767,26 @@ $("scnCat").innerHTML=catOptions("sonst");
 
 // ---------- Fly-in für BZ und Temperatur ----------
 let flyKind=null;
+// Defi und Pacer: der Inhalt des jeweiligen Fensters wird ins Fly-in neben der rechten Leiste verschoben
+const FLYSHEET={defi:["Defibrillation","shDefi"],pacer:["Schrittmacher","shPacer"]};
+let flyMoved=null;
+function restoreFly(){if(flyMoved){$(flyMoved[1]).querySelector(".card").appendChild(flyMoved[0]);flyMoved=null}}
 const FLY={bz:{t:"Blutzucker",k:"bloodGlucose",u:"mmol/l",c:"#ff6b6b"},temp:{t:"Temperatur (Ohr)",k:"temperature",u:"°C",c:"var(--temp)",extra:toggleRow("tempAttached","Temperatursonde angelegt (Monitor)")}};
 function openFly(kind,btn){
+  restoreFly();
+  if(FLYSHEET[kind]){
+    const [t,id]=FLYSHEET[kind],el=$("fly"),body=$(id).querySelector(".cb");flyKind=kind;
+    document.querySelectorAll("[data-fly]").forEach(x=>x.classList.toggle("sel",x===btn));
+    el.style.setProperty("--c",kind==="pacer"?"#ff9f0a":"var(--text)");el.classList.add("wide");
+    el.innerHTML=`<div class="fh">${t}<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></div>`;
+    el.appendChild(body);flyMoved=[body,id];
+    const b=btn.getBoundingClientRect(),m=$("main").getBoundingClientRect();
+    el.style.left="";el.style.right=(innerWidth-b.left+10)+"px";
+    el.classList.add("open");render();
+    const h=el.offsetHeight;el.style.top=Math.max(m.top+6,Math.min(b.top+b.height/2-h/2,innerHeight-h-10))+"px";
+    return;
+  }
+  $("fly").classList.remove("wide");$("fly").style.right="";
   const f=FLY[kind],s=SPEC[f.k],el=$("fly");flyKind=kind;
   document.querySelectorAll("[data-fly]").forEach(x=>x.classList.toggle("sel",x===btn));
   el.style.setProperty("--c",f.c);
@@ -778,7 +798,7 @@ function openFly(kind,btn){
   el.classList.add("open");render();
   const h=el.offsetHeight;el.style.top=Math.max(m.top+6,Math.min(b.top+b.height/2-h/2,innerHeight-h-10))+"px";
 }
-function closeFly(){if(!flyKind)return;flyKind=null;$("fly").classList.remove("open");document.querySelectorAll("[data-fly]").forEach(x=>x.classList.remove("sel"))}
+function closeFly(){if(!flyKind)return;flyKind=null;$("fly").classList.remove("open");setTimeout(()=>{if(!flyKind)restoreFly()},180);document.querySelectorAll("[data-fly]").forEach(x=>x.classList.remove("sel"))}
 
 // ---------- Medien: EKG-Ausdrucke vom Monitor ----------
 let prints=[],printsKey=null;
