@@ -249,20 +249,17 @@ textarea.txt{width:100%;resize:vertical;font:15px/1.4 -apple-system,system-ui;mi
     <div class="g"><div class="r"><input id="codeInput" placeholder="Kopplungscode" autocapitalize="characters" autocomplete="off" maxlength="8"
       style="font:600 20px ui-monospace,monospace;letter-spacing:2px;border:0;background:transparent;color:var(--text);width:100%;text-transform:uppercase;outline:0">
       <button class="btn" id="codeBtn">Koppeln</button></div></div>
-    <div class="sf">Scanne am besten den QR-Code am Monitor (Monitor → „Geräte koppeln“). Oder tippe den 8-stelligen Code ab.</div>
   </div>
 </div></div>
 
 <div class="sheet" id="shConnect"><div class="card">
   <header>Mit Monitor verbinden<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
-  <div class="cb"><div class="g" id="peers"></div>
-  <div class="sf">Beide Geräte brauchen eingeschaltetes WLAN oder Bluetooth und müssen den Zugriff auf das lokale Netzwerk erlauben. Den Namen des Monitors zeigt die Monitor-App oben links.</div></div>
+  <div class="cb"><div class="g" id="peers"></div></div>
 </div></div>
 
 <div class="sheet" id="shSensors"><div class="card">
   <header>Sensoren am Patienten<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
-  <div class="cb"><div class="g" id="sensors"></div>
-  <div class="sf">Erst wenn ein Sensor hier freigegeben ist, zeigt der Monitor Kurve und Wert an. Schock und Pacer gehen nur mit Pads, die 6- und 12-Kanal-Ansicht nur mit dem passenden Kabel.</div></div>
+  <div class="cb"><div class="g" id="sensors"></div></div>
 </div></div>
 
 <div class="sheet" id="shVitals"><div class="card wide">
@@ -271,12 +268,10 @@ textarea.txt{width:100%;resize:vertical;font:15px/1.4 -apple-system,system-ui;mi
     <div>
       <div class="sh">Auskultation</div>
       <div class="g" id="vitSounds"></div>
-      <div class="sf">Die Geräusche hört man auf dem FM-Vitals-Gerät beim Antippen der Abhörpunkte. Herztöne laufen mit der Herzfrequenz vom Monitor, ohne Puls sind sie still.</div>
     </div>
     <div>
       <div class="sh">Pupillen</div>
       <div class="g" id="vitPupils"></div>
-      <div class="sf">Blutzucker und Temperatur stellst du über die Knöpfe BZ und Temp in der linken Leiste ein.</div>
     </div>
   </div>
 </div></div>
@@ -299,14 +294,13 @@ textarea.txt{width:100%;resize:vertical;font:15px/1.4 -apple-system,system-ui;mi
         <div id="coSl"></div>
         <div class="r"><button class="pill red" id="coFire">CO-Alarm auslösen</button></div>
       </div>
-      <div class="sf">Der Wert erscheint am CO-Melder in FM Vitals. Beim Alarm piept und blinkt der Melder, bis du den Alarm hier beendest. Richtwerte: ab 30 ppm Voralarm, ab 60 ppm Hauptalarm, ab 200 ppm lebensgefährlich.</div>
     </div>
   </div>
 </div></div>
 
 <div class="sheet" id="shMedia"><div class="card wide">
   <header>Medien – Ausdrucke vom Monitor<button class="hb" id="mediaClear">Zurücksetzen</button><button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
-  <div class="cb" id="media"><div class="g"><div class="ev"><small>Noch keine Ausdrucke. Wird am Monitor ein EKG gedruckt, erscheint es hier.</small></div></div></div>
+  <div class="cb" id="media"><div class="g"><div class="ev"><small>Noch keine Ausdrucke.</small></div></div></div>
 </div></div>
 
 <div class="sheet" id="shRhythm"><div class="card wide">
@@ -330,7 +324,6 @@ textarea.txt{width:100%;resize:vertical;font:15px/1.4 -apple-system,system-ui;mi
   <header>Defibrillation<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
   <div class="cb">
     <div class="g"><div class="r stack"><span>Rhythmus nach Schock</span><select id="shockConversion"></select></div><div id="convAfter"></div><div id="convRate"></div></div>
-    <div class="sf">Gilt für Defibrillation und Kardioversion. Der Monitor zählt bei jedem Schock herunter und wechselt beim letzten nötigen Schock in diesen Rhythmus (mit der eingestellten Frequenz).</div>
   </div>
 </div></div>
 
@@ -338,8 +331,7 @@ textarea.txt{width:100%;resize:vertical;font:15px/1.4 -apple-system,system-ui;mi
   <header>Schrittmacher<button class="x" aria-label="Schließen"><svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg></button></header>
   <div class="cb">
     <div class="g" id="pacer"></div>
-    <div class="sf" id="pacerHint" style="color:#ff9f0a">Der Pacer geht nur mit angeschlossenen Pads (linke Leiste „Pads“).</div>
-    <div class="sf">Ab dieser Stromstärke folgt auf jeden Pacer-Impuls ein breiter Kammerkomplex. Ohne mechanische Capture bleibt der Patient trotzdem pulslos.</div>
+    <div class="sf" id="pacerHint" style="color:#ff9f0a">Nur mit angeschlossenen Pads.</div>
   </div>
 </div></div>
 
@@ -355,7 +347,6 @@ textarea.txt{width:100%;resize:vertical;font:15px/1.4 -apple-system,system-ui;mi
         <div class="r"><span>Kategorie</span><select class="catsel" id="scnCat"></select></div>
         <div class="r"><button class="pill" id="scnSave">Aktuelle Einstellungen als Szenario speichern</button></div>
       </div>
-      <div class="sf">Gespeichert werden Rhythmus, Frequenz, Puls, Vitalwerte, Rhythmus nach Schock, Pacer-Schwelle sowie aus FM Vitals Blutzucker, Abhörbefunde und die vorbereitete Einsatzmeldung. Nach dem Laden muss nur noch der Einsatz ausgelöst werden. Die Szenarien liegen dauerhaft auf dem iPad und sind von jedem gekoppelten Handy aus sichtbar. Gleicher Name überschreibt das alte Szenario. Ein geladenes Szenario lässt sich in der Liste mit 💾 aktualisieren und einer anderen Kategorie zuordnen.</div>
     </div>
   </div>
 </div></div>
@@ -668,7 +659,7 @@ function render(){
   // Lungenbefunde älterer Szenarien auf die heutige Liste abbilden
   const LOLD={rgfeucht:"rasseln",knistern:"rasseln",stridor:"stridor_insp",bronchial:"normal",pleura:"normal"};if(LOLD[state.lungSound])state.lungSound=LOLD[state.lungSound];if(state.heartSound==="leise"||state.heartSound==="reiben")state.heartSound="normal";
   document.querySelectorAll("select[data-key]").forEach(el=>{if(document.activeElement!==el)el.value=state[el.dataset.key]});
-  $("pagerInfo").textContent=state.pagerAlarmID?"Zuletzt ausgelöst "+new Date(state.pagerAlarmAt*1000).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})+": "+state.pagerText.replace(/\n/g," · "):"Noch kein Einsatz ausgelöst.";
+  $("pagerInfo").textContent=state.pagerAlarmID?"Zuletzt ausgelöst "+new Date(state.pagerAlarmAt*1000).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})+": "+state.pagerText.replace(/\n/g," · "):"";
   document.querySelectorAll(".tile").forEach(el=>el.classList.toggle("on",el.dataset.rhythm===state.rhythm));
   renderWaves();
   $("shockConversion").value=state.shockConversion||"";
@@ -824,7 +815,7 @@ function decodeLead(b64){const bin=atob(b64||""),a=new Array(bin.length);let acc
 function leadName(k,pl){if(!/^V[3-6]$/.test(k))return k;const n=+k[1];return pl==="right"?"V"+n+"R":pl==="posterior"?(n===3?"V3":"V"+(n+3)):k}
 function renderMedia(){
   const box=$("media");
-  if(!prints.length){box.innerHTML=`<div class="g"><div class="ev"><small>Noch keine Ausdrucke. Wird am Monitor ein EKG gedruckt, erscheint es hier.</small></div></div>`;return}
+  if(!prints.length){box.innerHTML=`<div class="g"><div class="ev"><small>Noch keine Ausdrucke.</small></div></div>`;return}
   box.innerHTML=prints.slice().reverse().map(p=>{
     const t=(p.kind==="strip"?"EKG-Streifen (Abl. "+leadName(p.lead,p.placement)+")":"12-Kanal-EKG")+(p.placement==="right"?" · rechtspräkordial":p.placement==="posterior"?" · posterior":"");
     return `<div class="pr"><div class="ph"><span>${esc(t)}</span><small>${esc(p.monitor||"")} · ${new Date(p.date).toLocaleString("de-DE")}</small></div>
